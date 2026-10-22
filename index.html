@@ -1,0 +1,1776 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#FFFFFF">
+<!-- home-screen app: square, full-bleed artwork (the phone rounds or masks the corners itself) -->
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">   <!-- Figma 56:3367 "Favicon", exported at 2x -->
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="DRUB">
+<meta name="application-name" content="DRUB">
+<title>DRUB</title>
+<script>
+  // SF Pro: the installed variable font (designers' Macs), else the system font on Apple devices (it is SF Pro, with the
+  // same width axis). Other platforms can't have SF Pro (its licence forbids serving it), so they get Archivo: a free
+  // variable font whose wide end (125%) looks the most like SF Pro's extended cut; widths outside 62–125% are held at
+  // its limits. ?font=fallback shows that fallback anywhere, SF Pro installed or not.
+  (function () {
+    // The other candidates tried for it, previewed anywhere with ?font=roboto, inter or intertight (Roboto Flex's width
+    // runs 25–151%; Inter and Inter Tight have no width axis, so every letter keeps one width)
+    var CAND = { roboto: 'Roboto+Flex:opsz,wdth,wght@8..144,25..151,100..1000', inter: 'Inter:opsz,wght@14..32,100..900', intertight: 'Inter+Tight:wght@100..900' };
+    var m = location.search.match(/[?&]font=(\w+)/), pick = m && CAND[m[1]] ? m[1] : null;
+    var fallback = !!pick || /[?&]font=fallback\b/.test(location.search);
+    var apple = !fallback && (/Mac|iPhone|iPad|iPod/.test(navigator.platform) || /Mac OS X|iPhone|iPad/.test(navigator.userAgent));
+    document.documentElement.className = apple ? 'apple' : fallback ? 'other nosf' + (pick ? ' f-' + pick : '') : 'other';
+    if (!apple) {
+      var l = document.createElement('link');
+      l.rel = 'stylesheet';
+      l.href = 'https://fonts.googleapis.com/css2?family=' + (pick ? CAND[pick] : 'Archivo:wdth,wght@62..125,100..900') + '&display=swap';
+      document.head.appendChild(l);
+    }
+  })();
+</script>
+<style>
+  @font-face {
+    font-family: "SF Pro V";
+    src: local("SFPro-Regular"), local("SF Pro Regular");
+    font-weight: 1 1000;
+    font-stretch: 30% 150%;
+  }
+  :root {
+    --ink: #000000;
+    --paper: #FFFFFF;
+    --font: "SF Pro V", "Archivo", sans-serif;
+    --ease: cubic-bezier(0.42, 0, 0.58, 1);   /* Figma's "ease in and out" */
+  }
+  html.apple { --font: "SF Pro V", system-ui, sans-serif; }
+  html.nosf { --font: "Archivo", sans-serif; }
+  html.f-roboto { --font: "Roboto Flex", sans-serif; }
+  html.f-inter { --font: "Inter", sans-serif; } html.f-intertight { --font: "Inter Tight", sans-serif; }
+
+  html.dark { --ink: #FFFFFF; --paper: #000000; }   /* step 2 and on: the page turns black */
+  html, body { margin: 0; height: 100%; background: var(--paper); overflow: hidden; overscroll-behavior: none;
+}
+  body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+         color: var(--ink); font-family: var(--font); -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+
+  /* The stage is the Figma frame (402 × 874 on an iPhone 17): full height, up to 430 px wide, centred. Positions are the
+     frame's, measured from the edge each element is pinned to: the top block from the top, the bar from the bottom,
+     the shape from the middle. */
+  .stage {
+    position: relative; margin: 0 auto; width: min(100vw, 430px); height: 100dvh; min-height: 560px;
+    --top: max(0px, env(safe-area-inset-top) - 20px);
+    --bottom: max(0px, env(safe-area-inset-bottom) - 20px);
+  }
+
+  /* SF Pro, bold, set per letter on the width axis at optical size 28. Every text box is trimmed to cap height and
+     baseline, so `top` is the cap line, exactly as in Figma. */
+  .t { position: absolute; margin: 0; font-weight: 700; line-height: 1; white-space: nowrap; text-transform: uppercase;
+       font-variation-settings: "wdth" var(--w, 150), "opsz" 28; }
+  .t span { font-variation-settings: "wdth" var(--w, 100), "opsz" 28; }
+  @supports (text-box: trim-both cap alphabetic) { .t { text-box: trim-both cap alphabetic; } }
+  @supports not (text-box: trim-both cap alphabetic) {
+    .t::before, .t::after { content: ""; display: table; }
+    .t::before { margin-bottom: -0.151em; }
+    .t::after { margin-top: -0.144em; }
+  }
+
+  /* top corners */
+  .logo { position: absolute; left: 40px; top: calc(40px + var(--top)); width: 24px; height: 24px; mix-blend-mode: luminosity;
+          cursor: pointer; z-index: 3; }
+  .logo::before { content: ''; position: absolute; inset: -12px; }   /* a 48 px tap zone round the 24 px mark */
+  .logo img { position: absolute; width: 14px; height: 14px; mix-blend-mode: difference; }
+  .help { top: calc(43.5px + var(--top)); right: 49.5px; transform: translateX(50%); font-size: 24px; }
+
+  /* the style picker: its instrument, then the name between the fading neighbours */
+  /* The sound-source switch: guitar = ACOUSTIC (the recordings), speaker = SYNTH, as v1's SYNTH/ACOUSTIC switch. It
+     belongs to the kit, not to the styles. The tap zone is 64 px square round the 24 px icon. The speaker's cones
+     move with the loop: the woofer with the kick, the tweeter with the snare and hat. The guitar follows the melody
+     line: each note strums it (it tips 4° round its body, 5.75° on the bar's first beat, more for a chord) and pops one of its
+     three white details by pitch (a chord pops all three). */
+  .icon { position: absolute; left: 50%; top: calc(156px + var(--top)); transform: translate(-50%, -50%); }
+  .kit { width: 64px; height: 64px; padding: 0; border: 0; background: none; cursor: pointer; display: grid; place-items: center;
+         -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+  .kit > * { grid-area: 1 / 1; display: block; }
+  .kit .speaker { overflow: visible; filter: invert(1); }   /* its asset is drawn for the black page: a white body with
+                                                              black cones; flipped on the white page */
+  html.dark .kit .speaker { filter: none; }
+  .kit .guitar { overflow: visible; } .kit .gt { transform-origin: 6px 19px; }   /* tips round its body */
+  .kit .tw { transform-origin: 8.624px 5.958px; } .kit .wf { transform-origin: 8.624px 14.683px; }
+  .kit:not(.synth) .speaker, .kit.synth .guitar { visibility: hidden; }
+  html.dark .face, html.dark .kit .guitar { filter: invert(1); }   /* the black SF Symbols turn white on the black page */
+
+  /* Style picker: the names on one line, the chosen one centred and set wide in the middle (width 150, 25 narrower
+     per letter outward), its neighbours showing the three letters nearest it (40, 35, 30 outward) and fading out.
+     The script lays the words out from a continuous position, so dragging, scrolling and tapping all move the same
+     strip and every letter morphs between the two settings on the way. The band around the names takes the input. */
+  /* The turning triangle's corners swing up past the names (to y ≈ 171), so the names are white with a difference
+     blend, like the bubbles: black on the page, white where the triangle passes behind them. */
+  .switch { position: absolute; left: 0; right: 0; top: calc(196px + var(--top)); height: 12px; z-index: 1;
+            mix-blend-mode: difference; }
+  .switch .t { left: 0; top: 0; font-size: 16px; color: #fff; will-change: transform; }
+  .picker { position: absolute; left: 0; right: 0; top: calc(176px + var(--top)); height: 56px; touch-action: pan-y;
+            z-index: 2; }
+  .picker, .picker:active { cursor: ew-resize; }                 /* the same sideways cursor as the tempo and the key */
+
+  /* The shape and its rhyme live in a 402 × 402 square centred on the screen (the frame's y 236–638), scaled down as a
+     unit on short screens (--s, set below). The script drives both from the clock, as v1 did:
+       the triangle turns a quarter clockwise on every beat and keeps going round (right, down, left, up per bar), springing
+       into place; its flat side hugs the edge it faces, as in the two Figma states
+       the four bubbles stay put; the one on the current beat swells to 24 px and the others shrink with distance
+       (12, 6, 3), springing to their new sizes on every beat
+     Bubbles are white with a difference blend: white over the triangle, black over the page, two-tone on its edge. */
+  /* ONE SHAPE, as in v1: a single outline in the page's opposite colour that morphs between the screens (triangle on
+     step 1, circle on step 2), with each screen's contents riding on it. The square is the page colour so the
+     difference-blended bubbles have a backdrop; it scales down as a unit on short screens. */
+  .figure { position: absolute; left: 50%; top: 50%; width: 402px; height: 402px; background: var(--paper);
+            transform: translate(-50%, -50%) scale(var(--s, 1)); }
+  .shape { position: absolute; inset: 0; overflow: visible; }
+  .figure.idle .shape { cursor: pointer; }
+  .shape path { fill: var(--ink); }
+  .shape .gap { fill: var(--paper); }                         /* tape stop: the page showing between its two blocks */   /* colours switch instantly, on the beat, as in v1 */
+  .bubbles { position: absolute; inset: 0; transform-origin: 201px 201px; }
+  /* the start screen (Figma "step 1." 42:3232): before the first tap only the knob is out, and START sits on the
+     triangle's centre, 16 px, each letter narrower than the last; it pinches away on the tap and comes back on a stop */
+  .start { display: none; }                                  /* hidden for now (Darius); kept, with its code, for later */
+  .start { left: 201.5px; top: 201px; font-size: 16px; color: #fff; mix-blend-mode: difference; transform: translate(-50%, -50%);
+           pointer-events: none; }
+  .bub { position: absolute; top: 201px; left: 0; width: 24px; height: 24px; margin: -12px 0 0 -12px; border-radius: 50%;
+         background: #fff; mix-blend-mode: difference; will-change: transform; }
+
+  /* Step 2, the pad (Figma "step 2."): a 322 px white circle, blurred and pulsing with the beat; K on the top half,
+     S on the bottom, H in a 30 px disc at the centre with a 44 px tap zone. Around the rim the loop: 32 steps from
+     12 o'clock clockwise (both bars at once; a one-bar loop shows twice), three rings per step (kick 12 px at r 143, snare 6 px at r 124, hat 3 px at r 109.5); a dot
+     shows where that drum plays and pops as the beat passes. A tap draws its lane's ring and narrows its letter
+     (Figma: K and H tapped; S the same way). The edge blurs with every kick (12 px, back to sharp in about half a second). */
+  /* Bass (Figma "iPhone 17 - 24", 10:678, colours turned for the white page): the shape stretches to a 134 × 402 pill,
+     black, blurred by the kick like the pad. v1's Bass: 11 notes from the bottom end's centre (y 335) to the top's
+     (y 67), 26.8 px apart, ticks down the left (longer on 0, 5, 10), the sound's name at the top (tap it for the next),
+     the note beside the knob; past either end the pill stretches like rubber. */
+  .bass { position: absolute; inset: 0; color: var(--paper); touch-action: none; }
+  .stage:not([data-mode="3"]) .bass { pointer-events: none; }
+  .bass .tick { position: absolute; left: 146px; height: 1.5px; margin-top: -0.75px; background: #fff; }
+  .bass .t { font-size: 11px; }
+  .bass .tone { left: 201px; transform: translate(-50%, -50%); cursor: pointer; }
+  .bass .note { left: 232px; transform: translateY(-50%); font-size: 12px; }
+  .bass .note2 { left: 160px; transform: translate(-50%, -50%); font-size: 9px; }
+  .bass .dot2 { position: absolute; left: 201px; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%;
+                background: #fff; mix-blend-mode: difference; }
+  .bass .acc { text-transform: none; font-size: 0.7em; }
+  .bass .tick, .bass .tone, .bass .note2 { display: none; }  /* no ticks or sound name for now (Darius) */
+  /* the note beside the knob (Figma 56:3504): 16 px, the letter at width 150, the rest at 125, 7 px right of the knob */
+  .bass .note { left: 220px; font-size: 16px; }
+  /* Filter (Figma "iPhone 17 - 30", 56:3377): a black 402 px square, edge to edge, and a 5 × 5 field of dots that
+     shrink from left to right (8, 6, 4, 2, 1 px: big on the low-pass side, gone on the high-pass side), on an even
+     70 px grid round the centre. v1's Filter: drag the knob, it stays where let go; a double-tap glides it home. */
+  .filt { position: absolute; inset: 0; touch-action: none; }
+  .stage:not([data-mode="4"]) .filt { pointer-events: none; }
+  .filt i { position: absolute; border-radius: 50%; background: var(--paper); }
+  /* Figma's letters take the place of four dots: R (resonance) top centre, L (low-pass) and H (high-pass) mid left
+     and right, X bottom centre in outline only; 16 px bold, width 150, centred on their grid points */
+  .filt .t { font-size: 16px; color: var(--paper); transform: translate(-50%, -50%); pointer-events: none; }
+  /* X is now plain, like R, L and H (Darius: no outline) */
+  /* Sequencer (Figma "iPhone 17 - 29", 56:4032): a full-width black band (y 1 … 514 of the figure), five columns: D
+     (the kick), S, a thin track the knob rides down, H, M (melody). All 32 steps on screen, no 1 / 2 pages
+     (Darius): rows 72 … 483, 13.3 px apart. While it plays: a comet tail behind the playhead, and each line's column shivers
+     when it plays; the band itself keeps still. On: 8 px (Darius; Figma had 12); off: a 2 px speck. A muted line goes to outline (Figma's D), its specks unchanged.
+     v1's Sequencer: tap a step to toggle it, tap a letter to mute its line. Up top the style picker moves to the left
+     half and the melody's sound picker takes the right (PLUCK …). */
+  .seq { position: absolute; inset: 0; color: var(--paper); touch-action: none; }
+  .stage:not([data-mode="2"]) .seq { pointer-events: none; }
+  .seq i { position: absolute; border-radius: 50%; background: var(--paper); will-change: transform; }
+  .seq i.o { background: none; box-shadow: inset 0 0 0 1px var(--paper); }
+  .seq .t { font-size: 20px; transform: translate(-50%, -50%); top: 38px; cursor: pointer; }
+  /* a muted line (Figma's "D" frame shows one): its letter and its steps in outline; its specks unchanged */
+  .seq .t.mute { color: var(--ink); -webkit-text-stroke: 2px var(--paper); paint-order: stroke fill; }
+  /* (the split itself glides with the band: see topSplit) */
+  .tones { position: absolute; left: 50%; right: 0; top: calc(196px + var(--top)); height: 12px; z-index: 1; mix-blend-mode: difference; }
+  .tones .t { top: 0; font-size: 16px; color: #fff; }
+  .tpick { position: absolute; left: 50%; right: 0; top: calc(176px + var(--top)); height: 56px; z-index: 2; cursor: ew-resize; touch-action: pan-y; }
+  .tones { opacity: 0; } .tpick { pointer-events: none; }
+  .pad { position: absolute; left: 40px; top: 40px; width: 322px; height: 322px; touch-action: none; cursor: pointer; }
+  .stage:not([data-mode="1"]) .pad { pointer-events: none; }
+  .pad > div { position: absolute; inset: 0; }
+  .pad .dot { position: absolute; left: 161px; top: 161px; border-radius: 50%; will-change: transform; }
+  /* K, H, S: 20 px letters (cap lines at 92.5, 154, 216); a letter drops to 16 px while it is tapped, and H also while
+     the knob rests in the middle (an empty step: Figma's "no K-H-S"), where it shows white inside the knob */
+  .pad .lbl { position: absolute; left: 161px; transform: translateX(-50%); font-size: 20px; }
+  .pad .lbl.k { top: 92.5px; }  .pad .lbl.h { top: 154px; }  .pad .lbl.s { top: 216px; }
+  .pad .lbl.small { font-size: 16px; }
+  .pad .lbl.narrow { --w: 50; }                                /* tapped: same size, narrowed on the width axis (Figma) */
+  .pad .lbl.k.small { top: 93.9px; }  .pad .lbl.h.small { top: 155.4px; }  .pad .lbl.s.small { top: 217.4px; }
+  .pad .base .dot { background: var(--paper); }
+  .pad .base .lbl { color: var(--paper); }
+  /* a tap draws its lane's ring for 100 ms: a black band through that lane's dots, as wide as they are
+     (kick 12 px at r 143, snare 6 px at r 124, hat 3 px at r 109.5), and its letter narrows to width 50 */
+  .pad .ring { position: absolute; left: 50%; top: 50%; box-sizing: border-box; border: solid var(--paper); border-radius: 50%;
+               transform: translate(-50%, -50%); visibility: hidden; }
+  .pad .ring.k { width: 298px; height: 298px; border-width: 12px; }
+  .pad .ring.s { width: 254px; height: 254px; border-width: 6px; }
+  .pad .ring.h { width: 222px; height: 222px; border-width: 3px; }
+
+  /* The knob, as in v1: one small circle that always exists and travels between jobs: the beat bubble on step 1, the
+     current step's dot on the pad (kick, then hat, then snare), and the current mode dot while the screen changes.
+     White with a difference blend: white over the shape, black over the page. */
+  .knob { position: absolute; left: 0; top: 0; width: 24px; height: 24px; border-radius: 999px;   /* sized live: a pill on its trips */
+          background: #fff; mix-blend-mode: difference; z-index: 1; pointer-events: none; will-change: transform; }
+  .knob.solid { background: var(--paper); mix-blend-mode: normal; }   /* the page colour: on the pad, the shape's opposite */
+
+  /* bottom bar: tempo, the mode dots, key */
+  .bpm { left: 60.5px; bottom: calc(40px + var(--bottom)); transform: translateX(-50%); font-size: 20px; }
+  /* tempo bars above it (Figma "Frame 5", 40 × 40 at 40, 780): four 4 px bars; they spring to a new arrangement on
+     every 16th note, full height on the beat */
+  .bars { position: absolute; left: 40px; bottom: calc(54px + var(--bottom)); width: 40px; height: 40px; }
+  /* the tempo zone over the bars and the number: drag sideways (or up), scroll, or tap for the next common tempo */
+  .tempo { position: absolute; left: 24px; bottom: calc(24px + var(--bottom)); width: 76px; height: 86px; z-index: 2;
+           cursor: ew-resize; touch-action: none; }
+  .bars i { position: absolute; top: 20px; width: 4px; height: 24px; border-radius: 100px;   /* height set live, never scaled: */
+            background: var(--ink); transform: translateY(-50%); }   /* ends stay round */
+  .dots { position: absolute; left: 50%; bottom: calc(40px + var(--bottom)); width: 134px; height: 14px; transform: translateX(-50%);
+          display: flex; align-items: center; justify-content: space-between; }
+  .dots i { display: block; background: var(--ink); border-radius: 100px; width: var(--d); height: var(--d);
+            transition: width 300ms var(--ease), height 300ms var(--ease); }
+  .modes { position: absolute; left: 50%; bottom: calc(25px + var(--bottom)); width: 170px; height: 44px; transform: translateX(-50%);
+           cursor: pointer; z-index: 2; }
+  .key { right: 64.5px; bottom: calc(40px + var(--bottom)); font-size: 20px; }
+  .face { position: absolute; right: 39.19px; bottom: calc(36.74px + var(--bottom)); width: 20.635px; height: 20.625px; }
+  /* The key, as v1's: tap for major / minor (the face smiles or frowns), drag sideways to change the note (26 px per
+     semitone past an 8 px dead zone). The mouth turns over through a flat line, with a blink as it passes flat; the
+     letter pinches narrow, swaps, and widens back. */
+  .face-svg { display: block; overflow: visible; }
+  .face .mouth { transform-origin: 10.32px 13.805px; } .face .eyes { transform-origin: 10.32px 8.11px; }
+  .key .acc { text-transform: none; font-size: 0.62em; margin-left: 0.04em; }
+  .keyzone { position: absolute; right: 24px; bottom: calc(24px + var(--bottom)); width: 96px; height: 54px; z-index: 2;
+             cursor: ew-resize; touch-action: none; }
+</style>
+</head>
+<body>
+<main class="stage" data-mode="0" aria-label="One Shape">
+  <div class="logo" role="button" tabindex="0" aria-label="Page colours: alternating. Tap to change">
+    <img src="assets/logo-dot-1.svg" alt="" style="left: 5px; top: 0">
+    <img src="assets/logo-dot-2.svg" alt="" style="left: 0; top: 10px">
+    <img src="assets/logo-dot-3.svg" alt="" style="left: 10px; top: 10px">
+  </div>
+  <p class="t help" aria-label="Help">?</p>
+
+  <button class="icon kit" type="button" aria-label="Sound source: acoustic. Switch to synth"><svg class="guitar" width="12" height="24" viewBox="0 0 12 24" fill="none" aria-hidden="true"><g class="gt"><path d="M0.175953 21.722L5.04282 10.5047V5.34413C5.04282 4.98426 4.95836 4.73234 4.78944 4.58839C4.62053 4.44444 4.30029 4.2717 3.82874 4.07018C3.65982 3.98381 3.56129 3.85785 3.53314 3.69231C3.50499 3.52677 3.55425 3.37202 3.68094 3.22807L6.04575 0.442645C6.30616 0.147548 6.54545 0 6.76364 0C6.93959 0 7.08035 0.0575798 7.18592 0.17274C7.29853 0.280702 7.35484 0.42825 7.35484 0.615385C7.35484 0.744939 7.31965 1.02564 7.24927 1.45749C7.18592 1.88934 7.11906 2.43995 7.04868 3.10931C6.98534 3.77148 6.95367 4.51642 6.95367 5.34413V10.5047L11.8311 21.722C11.9718 22.0603 12.0246 22.4022 11.9894 22.7476C11.9613 23.1003 11.8276 23.3954 11.5883 23.6329C11.349 23.8776 10.9935 24 10.522 24C10.2827 24 10.0469 23.9424 9.81466 23.8273C9.58944 23.7193 9.32551 23.5394 9.02287 23.2874L6.22522 20.9015C6.1478 20.8367 6.0739 20.8043 6.00352 20.8043C5.93314 20.8043 5.85924 20.8367 5.78182 20.9015L2.98416 23.2874C2.68152 23.5394 2.41408 23.7193 2.18182 23.8273C1.9566 23.9424 1.72082 24 1.47449 24C1.00997 24 0.658065 23.8776 0.418768 23.6329C0.179472 23.3954 0.0422287 23.1003 0.00703812 22.7476C-0.0211144 22.4022 0.0351906 22.0603 0.175953 21.722Z" fill="black"/><path class="gd" d="M7.62945 16.5291C7.5098 16.6514 7.36904 16.7126 7.20716 16.7126C7.03825 16.7126 6.89045 16.6514 6.76376 16.5291C6.63707 16.3995 6.57373 16.252 6.57373 16.0864C6.57373 15.9209 6.63707 15.7733 6.76376 15.6438C6.89045 15.5142 7.03825 15.4495 7.20716 15.4495C7.36904 15.4495 7.5098 15.5142 7.62945 15.6438C7.75613 15.7662 7.81948 15.9137 7.81948 16.0864C7.81948 16.252 7.75613 16.3995 7.62945 16.5291Z" fill="white" style="transform-origin:7.195px 16.08px"/><path class="gd" d="M7.8509 18.2456C8.01982 18.2456 8.1641 18.1844 8.28375 18.062C8.41043 17.9397 8.47378 17.7921 8.47378 17.6194C8.47378 17.4467 8.41043 17.2991 8.28375 17.1768C8.1641 17.0472 8.01982 16.9824 7.8509 16.9824C7.68199 16.9824 7.53419 17.0472 7.4075 17.1768C7.28785 17.3063 7.22803 17.4539 7.22803 17.6194C7.22803 17.7921 7.28785 17.9397 7.4075 18.062C7.53419 18.1844 7.68199 18.2456 7.8509 18.2456Z" fill="white" style="transform-origin:7.85px 17.615px"/><path class="gd" d="M8.94922 19.606C8.82957 19.7284 8.68529 19.7896 8.51637 19.7896C8.35449 19.7896 8.21021 19.7284 8.08352 19.606C7.96388 19.4765 7.90405 19.3253 7.90405 19.1526C7.90405 18.9871 7.96388 18.8395 8.08352 18.71C8.21021 18.5804 8.35449 18.5156 8.51637 18.5156C8.68529 18.5156 8.82957 18.5804 8.94922 18.71C9.0759 18.8323 9.13924 18.9799 9.13924 19.1526C9.13924 19.3253 9.0759 19.4765 8.94922 19.606Z" fill="white" style="transform-origin:8.52px 19.155px"/></g></svg><svg class="speaker" width="17.2368" height="22.3433" viewBox="0 0 17.2368 22.3433" fill="none" aria-hidden="true"><path d="M0 3.45557C0 2.33447 0.293945 1.47998 0.881836 0.89209C1.47656 0.297363 2.33105 0 3.44531 0H13.812C14.9194 0 15.7671 0.297363 16.355 0.89209C16.9429 1.47998 17.2368 2.33447 17.2368 3.45557V18.8877C17.2368 20.002 16.9429 20.8564 16.355 21.4512C15.7671 22.0459 14.9194 22.3433 13.812 22.3433H3.44531C2.33105 22.3433 1.47656 22.0459 0.881836 21.4512C0.293945 20.8564 0 20.002 0 18.8877V3.45557Z" fill="white"/><g class="tw"><path d="M9.91553 8.19287C9.52588 8.41846 9.09521 8.53125 8.62354 8.53125C8.14502 8.53125 7.71094 8.41846 7.32129 8.19287C6.93164 7.96045 6.62061 7.65283 6.38818 7.27002C6.1626 6.88037 6.0498 6.44287 6.0498 5.95752C6.0498 5.479 6.1626 5.04492 6.38818 4.65527C6.62061 4.26562 6.93164 3.95801 7.32129 3.73242C7.71094 3.5 8.14502 3.38379 8.62354 3.38379C9.10205 3.39062 9.53271 3.51025 9.91553 3.74268C10.3052 3.96826 10.6128 4.27588 10.8384 4.66553C11.0708 5.04834 11.1904 5.479 11.1973 5.95752C11.2041 6.44287 11.0913 6.88037 10.8589 7.27002C10.6265 7.65283 10.312 7.96045 9.91553 8.19287Z" fill="black"/><path d="M7.93652 6.65479C8.12793 6.83936 8.35693 6.93164 8.62354 6.93164C8.89014 6.93164 9.11914 6.83936 9.31055 6.65479C9.50195 6.46338 9.59766 6.23096 9.59766 5.95752C9.59766 5.68408 9.50195 5.45508 9.31055 5.27051C9.11914 5.0791 8.89014 4.9834 8.62354 4.9834C8.35693 4.9834 8.12793 5.07568 7.93652 5.26025C7.74512 5.44482 7.64941 5.67725 7.64941 5.95752C7.64941 6.23096 7.74512 6.46338 7.93652 6.65479Z" fill="white"/></g><g class="wf"><path d="M8.62402 10.3973C9.40997 10.3974 10.1281 10.5888 10.7773 10.9715C11.4266 11.3543 11.9424 11.8672 12.3252 12.5096C12.7148 13.1521 12.9101 13.8768 12.9102 14.6834C12.9102 15.4695 12.7148 16.1873 12.3252 16.8367C11.9424 17.4861 11.4267 18.0028 10.7773 18.3856C10.1281 18.7683 9.40997 18.9597 8.62402 18.9598C7.83112 18.9598 7.10933 18.7683 6.45996 18.3856C5.81743 18.0028 5.30175 17.4861 4.91211 16.8367C4.5293 16.1873 4.33691 15.4695 4.33691 14.6834C4.33693 13.8768 4.52932 13.1521 4.91211 12.5096C5.3017 11.8604 5.81756 11.3445 6.45996 10.9617C7.10938 10.5789 7.83105 10.3904 8.62402 10.3973Z" fill="black"/><path d="M8.62354 16.1909C8.20654 16.1909 7.84766 16.0439 7.54688 15.75C7.25293 15.4492 7.10596 15.0937 7.10596 14.6836C7.10596 14.2393 7.25293 13.8735 7.54688 13.5864C7.84082 13.2925 8.19971 13.1455 8.62354 13.1455C9.04736 13.1455 9.40625 13.2925 9.7002 13.5864C9.99414 13.8735 10.1411 14.2393 10.1411 14.6836C10.1411 15.0937 9.99414 15.4492 9.7002 15.75C9.40625 16.0439 9.04736 16.1909 8.62354 16.1909Z" fill="white"/></g></svg></button>
+  <div class="switch" aria-hidden="true"></div>
+  <div class="picker" role="slider" tabindex="0" aria-label="Style" aria-valuetext="Dubstep"></div>
+  <div class="tones" aria-hidden="true"></div>
+  <div class="tpick" role="button" tabindex="0" aria-label="Melody sound. Tap for the next"></div>
+
+  <div class="figure idle">
+    <svg class="shape" viewBox="0 0 402 402" aria-hidden="true"><defs>
+      <!-- the bass bar's sound made visible: noise-warped edges, then a taller-than-wide smear -->
+      <filter id="bassfx" x="-30%" y="-15%" width="160%" height="130%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.012 0.06" numOctaves="2" seed="1" result="n"/>
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="0" xChannelSelector="R" yChannelSelector="G" result="d"/>
+        <feGaussianBlur in="d" stdDeviation="0 0"/>
+      </filter>
+      <!-- the filter screen's glitch: vertical bands torn up and down, so the top and bottom edges become a jagged
+           skyline like a spectrum analyser; then a sideways smear -->
+      <filter id="filtfx" x="-5%" y="-15%" width="110%" height="130%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.04 0.0002" numOctaves="1" seed="1" result="n"/>
+        <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.5  0 1 0 0 0  0 0 0 0 0  0 0 0 0 1" result="m"/>
+        <feDisplacementMap in="SourceGraphic" in2="m" scale="0" xChannelSelector="R" yChannelSelector="G" result="d"/>
+        <feGaussianBlur in="d" stdDeviation="0 0"/>
+      </filter></defs><path></path><rect class="gap" x="134" width="134" y="201" height="0"></rect></svg>
+    <div class="bubbles" aria-hidden="true"><i class="bub b1"></i><i class="bub b2"></i><i class="bub b3"></i><i class="bub b4"></i>
+      <p class="t start"><span>S</span><span>T</span><span>A</span><span>R</span><span>T</span></p></div>
+    <div class="pad" role="group" aria-label="Pad: top half kick, bottom half snare, centre hat"></div>
+    <div class="bass" role="group" aria-label="Bass: drag up and down to play, a second finger plays a second note, tap the top for the sound">
+      <p class="t tone">SUB</p><p class="t note">A2</p><p class="t note2"></p><i class="dot2"></i>
+    </div>
+    <div class="seq" role="group" aria-label="Sequencer: tap a step to switch it, tap a letter to mute its line"></div>
+    <div class="filt" role="group" aria-label="Filter: drag the knob, left low-pass, right high-pass, up more resonance; double-tap for off"></div>
+  </div>
+
+  <i class="knob" aria-hidden="true"></i>
+  <div class="bars" aria-hidden="true"><i style="left: 6px"></i><i style="left: 14px"></i><i style="left: 22px"></i><i style="left: 30px"></i></div>
+  <p class="t bpm"></p>
+  <div class="tempo" role="slider" tabindex="0" aria-label="Tempo" aria-valuemin="60" aria-valuemax="180"></div>
+  <div class="dots" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="modes" role="button" tabindex="0" aria-label="Next screen"></div>
+  <p class="t key" aria-hidden="true">A</p>
+  <div class="face" aria-hidden="true"><svg class="face-svg" width="20.6348" height="20.625" viewBox="0 0 20.6348 20.625" fill="none" aria-hidden="true"><path d="M10.3125 20.625C8.89323 20.625 7.55859 20.3548 6.30859 19.8145C5.0651 19.2806 3.97135 18.5417 3.02734 17.5977C2.08333 16.6536 1.34115 15.5599 0.800781 14.3164C0.266927 13.0664 0 11.7318 0 10.3125C0 8.88672 0.266927 7.55208 0.800781 6.30859C1.34115 5.05859 2.08333 3.96159 3.02734 3.01758C3.97135 2.06706 5.0651 1.32812 6.30859 0.800781C7.55859 0.266927 8.89323 0 10.3125 0C11.7383 0 13.0729 0.266927 14.3164 0.800781C15.5664 1.32812 16.6634 2.06706 17.6074 3.01758C18.5514 3.96159 19.2904 5.05859 19.8242 6.30859C20.3646 7.55208 20.6348 8.88672 20.6348 10.3125C20.6348 11.7318 20.3646 13.0664 19.8242 14.3164C19.2904 15.5599 18.5514 16.6536 17.6074 17.5977C16.6634 18.5417 15.5664 19.2806 14.3164 19.8145C13.0729 20.3548 11.7383 20.625 10.3125 20.625ZM10.3125 18.0566C11.3867 18.0566 12.3893 17.8548 13.3203 17.4512C14.2578 17.054 15.0814 16.5007 15.791 15.791C16.5007 15.0749 17.0573 14.2513 17.4609 13.3203C17.8646 12.3828 18.0664 11.3802 18.0664 10.3125C18.0664 9.23828 17.8646 8.23242 17.4609 7.29492C17.0573 6.35742 16.5007 5.53711 15.791 4.83398C15.0814 4.12435 14.2578 3.57096 13.3203 3.17383C12.3893 2.77018 11.3867 2.56836 10.3125 2.56836C9.24479 2.56836 8.24219 2.77018 7.30469 3.17383C6.3737 3.57096 5.55013 4.12435 4.83398 4.83398C4.12435 5.53711 3.56771 6.35742 3.16406 7.29492C2.76693 8.23242 2.56836 9.23828 2.56836 10.3125C2.56836 11.3802 2.76693 12.3828 3.16406 13.3203C3.56771 14.2513 4.12435 15.0749 4.83398 15.791C5.55013 16.5007 6.3737 17.054 7.30469 17.4512C8.24219 17.8548 9.24479 18.0566 10.3125 18.0566Z" fill="black"/><g class="eyes"><path d="M7.45117 9.41406C7.15169 9.41406 6.89128 9.29362 6.66992 9.05273C6.44857 8.80534 6.33789 8.49284 6.33789 8.11523C6.33789 7.73112 6.44857 7.41862 6.66992 7.17773C6.89128 6.93034 7.15169 6.80664 7.45117 6.80664C7.75716 6.80664 8.02409 6.93034 8.25195 7.17773C8.47982 7.41862 8.59375 7.73112 8.59375 8.11523C8.59375 8.49284 8.47982 8.80534 8.25195 9.05273C8.02409 9.29362 7.75716 9.41406 7.45117 9.41406Z" fill="black"/><path d="M12.3828 9.05273C12.6042 9.29362 12.8646 9.41406 13.1641 9.41406C13.4635 9.41406 13.7272 9.29362 13.9551 9.05273C14.1895 8.80534 14.3066 8.49284 14.3066 8.11523C14.3066 7.73112 14.1895 7.41862 13.9551 7.17773C13.7272 6.93034 13.4635 6.80664 13.1641 6.80664C12.8646 6.80664 12.6042 6.93034 12.3828 7.17773C12.1615 7.41862 12.0508 7.73112 12.0508 8.11523C12.0508 8.49284 12.1615 8.80534 12.3828 9.05273Z" fill="black"/></g><path class="mouth" d="M8.50586 14.6128C9.02669 14.8537 9.62891 14.9741 10.3125 14.9741C11.0026 14.9741 11.6048 14.8537 12.1191 14.6128C12.64 14.3654 13.0436 14.0822 13.3301 13.7632C13.6165 13.4442 13.7598 13.174 13.7598 12.9526C13.7598 12.8289 13.7077 12.7443 13.6035 12.6987C13.5059 12.6466 13.3984 12.6434 13.2812 12.689C12.9167 12.8713 12.5065 13.0503 12.0508 13.2261C11.6016 13.4019 11.0221 13.4897 10.3125 13.4897C9.60286 13.4897 9.02018 13.4051 8.56445 13.2358C8.11523 13.0601 7.70833 12.8778 7.34375 12.689C7.22656 12.6369 7.11914 12.6369 7.02148 12.689C6.92383 12.741 6.875 12.8289 6.875 12.9526C6.875 13.174 7.01497 13.4442 7.29492 13.7632C7.58138 14.0822 7.98503 14.3654 8.50586 14.6128Z" fill="black"/></svg></div>
+  <div class="keyzone" role="button" tabindex="0" aria-label="Key: A minor. Tap for major or minor, drag sideways to change the note"></div>
+</main>
+<script>
+  // Fit: the square shrinks on short screens so the turned triangle (402 tall) never meets the style picker.
+  const stage = document.querySelector('.stage'), fig = document.querySelector('.figure');
+  function fit() {
+    const top = parseFloat(getComputedStyle(stage).getPropertyValue('--top')) || 0;
+    const s = Math.min(1, stage.clientWidth / 402, (stage.clientHeight / 2 - 232 - top) / 201);
+    fig.style.setProperty('--s', Math.max(0.4, s).toFixed(4));
+  }
+  addEventListener('resize', () => { fit(); lastPos = null; }); fit();
+
+  // spring step 0 → 1, damping 0.84 (under 1% overshoot): v1's closed form
+  function S(tau, w, z = 0.84) {
+    if (tau <= 0) return 0;
+    const wd = w * Math.sqrt(1 - z * z), e = Math.exp(-z * w * tau);
+    return 1 - e * (Math.cos(wd * tau) + (z * w / wd) * Math.sin(wd * tau));
+  }
+  const now = () => performance.now() / 1000;
+  const mod = (a, n) => ((a % n) + n) % n;
+
+  /* ---------- styles: v1's, without Lo-fi, plus Dubstep, in a loop, 2-Step first: the UK broken beats (2-Step,
+     Dubstep, Drum & Bass), then the four-on-the-floor pair (Techno, Deep House), back round to 2-Step ---------- */
+  const STYLES = [
+    { name: '2STEP', label: '2-Step', bpm: 132, k: '10000001001000001000000000101000', s: '00001000000010000000100000001001', h: '00110010001100100010001100100110' },
+    { name: 'DUBSTEP', label: 'Dubstep', bpm: 140, k: '10000000001000001000000000000100', s: '00000000100000000000000010000000', h: '00100010001000100010001000101111' },
+    { name: 'DRUM&BASS', label: 'Drum & Bass', bpm: 174, k: '10000000001000000010000000100000', s: '00001001001010010000100100101010', h: '10111010101110101010101110101110' },
+    { name: 'TECHNO', label: 'Techno', bpm: 132, k: '1000100010001000', s: '0000000000001000', h: '1111111111111111' },
+    { name: 'DEEPHOUSE', label: 'Deep House', bpm: 121, k: '1000100010001000', s: '0000100000001000', h: '0010001000100010' },
+  ];
+  const N = STYLES.length, GAP = 10, STEP = 56;               // STEP: px of drag per style, about the strip's own travel
+  const focusX = () => strip.clientWidth / 2 - 1;               // the name's centre: mid-screen, 1 px left as in Figma
+  const strip = document.querySelector('.switch'), picker = document.querySelector('.picker');
+  const words = STYLES.map(st => {
+    const p = document.createElement('p'); p.className = 't';
+    for (const ch of st.name) { const sp = document.createElement('span'); sp.textContent = ch; p.appendChild(sp); }
+    strip.appendChild(p); return p;
+  });
+  const centreW = (L, j) => Math.max(30, 150 - 25 * Math.abs(j - (L - 1) / 2));
+  const sideW = r => r === 0 ? 40 : r === 1 ? 35 : 30;          // r: letters away from the inner edge
+
+  const DUBSTEP = STYLES.findIndex(st => st.name === 'DUBSTEP'), FIRST = STYLES.findIndex(st => st.name === '2STEP');   // the app opens on 2-Step
+  let pos = FIRST, shown = null;                             // continuous position in the loop
+  let anim = null;                                             // { from, to, t0 }: spring to a style
+  // lays out any strip of names round its own centre: the style strip, and the Sequencer's sound strip
+  function layoutStrip(stripEl = strip, wordEls = words, p = pos) {
+    const N = wordEls.length, focusX = () => stripEl.clientWidth / 2 - 1;
+    const items = [];
+    wordEls.forEach((el, i) => {
+      let o = mod(i - p + N / 2, N) - N / 2;                 // offset from the centre, in styles
+      if (Math.abs(o) >= 2) { el.style.visibility = 'hidden'; return; }
+      el.style.visibility = 'visible';
+      const t = Math.min(1, Math.abs(o)), sp = el.children, L = sp.length;
+      for (let j = 0; j < L; j++) {
+        const r = o < 0 ? L - 1 - j : j, c = centreW(L, j), w = c + (sideW(r) - c) * t;
+        sp[j].style.fontVariationSettings = `"wdth" ${w.toFixed(1)}, "opsz" 28`;
+      }
+      items.push({ el, o, i });
+    });
+    // measure, then place left to right with 10 px gaps, so the point between the two nearest words sits on the focus
+    for (const it of items) {
+      it.w = it.el.offsetWidth;
+    }
+    items.sort((a, b) => a.o - b.o);
+    let x = 0; for (const it of items) { it.c = x + it.w / 2; x += it.w + GAP; }
+    let k = 0; items.forEach((it, j) => { if (Math.abs(it.o) < Math.abs(items[k].o)) k = j; });
+    const nb = items[k + (items[k].o < 0 ? 1 : -1)];
+    const focus = items[k].c - (nb ? items[k].o * Math.abs(nb.c - items[k].c) : 0), fx = focusX();
+    for (const it of items) it.el.style.transform = `translateX(${(fx + it.c - focus - it.w / 2).toFixed(2)}px)`;
+    // One fade for the whole line, fixed to the screen: solid across the centre zone (the centred name plus the gap),
+    // then out to nothing over 16 px at rest, 28 px halfway through a swipe. At rest that is Figma's neighbour fade; mid-swipe, whatever part of either word is
+    // in the zone is solid and the rest dissolves. The zone's half-width follows the names as they morph.
+    const nbW = nb ? nb.w : items[k].w, half = items[k].w / 2 + (nbW / 2 - items[k].w / 2) * Math.min(1, Math.abs(items[k].o));
+    const in_ = half + GAP, out = in_ + 16 + 24 * Math.min(0.5, Math.abs(items[k].o));   // 16 px at rest (Figma), 28 mid-swipe
+    const m = `linear-gradient(to right, transparent ${(fx - out).toFixed(1)}px, #000 ${(fx - in_).toFixed(1)}px, #000 ${(fx + in_).toFixed(1)}px, transparent ${(fx + out).toFixed(1)}px)`;
+    stripEl.style.webkitMaskImage = stripEl.style.maskImage = m;
+  }
+
+  /* ---------- tempo: the beat clock keeps counting across tempo changes ---------- */
+  // Nothing plays until the first tap or click on the triangle: until then the clock stands still at beat 0.
+  let playing = false, playT = 0, firstPlayT = 0;             // firstPlayT: START shows only until this first play
+  let seg = { t0: now(), b0: 0, bps: STYLES[FIRST].bpm / 60 };
+  // Tape stop (step 6, v1's): while held the clock winds down to a halt over TAPE_D seconds; let go, it waits and
+  // comes back on the next downbeat of the grid it would have kept ("on the one"). tape: { ts, tr, tR } (v1's names)
+  const TAPE_D = 1.4;
+  let tape = null;
+  const gridB = t => seg.b0 + (t - seg.t0) * seg.bps;
+  const gridT = b => seg.t0 + (b - seg.b0) / seg.bps;
+  const tapeOn = t => tape && t >= tape.ts && (tape.tR == null || t < tape.tR);
+  const beats = t => {
+    if (!playing) return seg.b0;
+    if (tapeOn(t)) { const u = Math.min(1, (t - tape.ts) / TAPE_D); return gridB(tape.ts) + seg.bps * TAPE_D * (1 - Math.pow(1 - u, 3)) / 3; }
+    return gridB(t);
+  };
+  // the time beat b sounds at, or null (skipped by a tape stop), or undefined (not known yet: the tape is still held)
+  function timeAtBeat(b) {
+    const tc = gridT(b);
+    if (!tape || tc < tape.ts) return tc;
+    const b0 = gridB(tape.ts), bMax = b0 + seg.bps * TAPE_D / 3;
+    if (b < bMax) return tape.ts + (1 - Math.cbrt(1 - 3 * (b - b0) / (seg.bps * TAPE_D))) * TAPE_D;
+    if (tape.tR == null) return undefined;
+    return b < gridB(tape.tR) - 1e-9 ? null : tc;
+  }
+  const bpmEl = document.querySelector('.bpm');
+  const tempoEl = document.querySelector('.tempo');
+  function setBpm(bpm) {                                       // the clock keeps counting: no skipped or doubled beat
+    bpm = Math.max(60, Math.min(180, Math.round(bpm)));
+    STYLES[shown].bpm = bpm;                                   // each style keeps its own tempo, as in v1
+    const t = now();
+    if (tape && tapeOn(now())) return;                         // as v1: no tempo change while the tape is stopped
+    const changed = Math.abs(seg.bps - bpm / 60) > 1e-9;
+    seg = { t0: t, b0: beats(t), bps: bpm / 60 };
+    if (changed && typeof AU !== 'undefined') {
+      resync(t); if (playing) tick(1300, 0.3);
+      if (snd().wobble) post(2, [[EV.WOB, 0, bpm / 60 * snd().wobble, 0, 0]]);
+    }
+    const ws = String(bpm).length === 3 ? [125, 150, 125] : [150, 125];
+    bpmEl.innerHTML = [...String(bpm)].map((d, j) => `<span style="--w: ${ws[j]}">${d}</span>`).join('');
+    bpmEl.setAttribute('aria-label', bpm + ' BPM');
+    tempoEl.setAttribute('aria-valuenow', bpm);
+  }
+  function choose(i) {                                         // a style is picked as soon as the strip heads for it
+    if (shown === i) return;
+    const first = shown === null;
+    shown = i;
+    setBpm(STYLES[i].bpm);
+    if (!first) { resync(); tick(620 + snd().idx * 90, 0.45); }
+    if (typeof bassTone !== 'undefined' && AU.ready) { bassAllUp(now()); post(snd().synth, [[EV.BTONE, 0, bassTone[i], 0, 0]]); }
+    if (typeof kitShow === 'function') kitShow();
+    if (typeof toneLayout === 'function' && mode === 2) toneLayout();
+    picker.setAttribute('aria-valuetext', STYLES[i].label);
+  }
+
+  /* ---------- tempo: drag sideways or up (1 BPM per 4 px past an 8 px dead zone, as in v1), scroll, or tap for the
+     next of five common tempos ---------- */
+  const PRESETS = [90, 120, 128, 140, 174];
+  let tDrag = null, tWheel = 0;
+  tempoEl.addEventListener('pointerdown', e => { tDrag = { id: e.pointerId, x: e.clientX, y: e.clientY, bpm0: STYLES[shown].bpm, moved: false }; tempoEl.setPointerCapture(e.pointerId); });
+  tempoEl.addEventListener('pointermove', e => {
+    if (!tDrag || e.pointerId !== tDrag.id) return;
+    const d = (e.clientX - tDrag.x) - (e.clientY - tDrag.y);
+    if (Math.abs(d) > 8) tDrag.moved = true;
+    if (tDrag.moved) setBpm(tDrag.bpm0 + (d - Math.sign(d) * 8) / 4);
+  });
+  const tEnd = e => {
+    if (!tDrag || e.pointerId !== tDrag.id) return;
+    if (!tDrag.moved && e.type === 'pointerup') { const cur = STYLES[shown].bpm; setBpm(PRESETS.find(p => p > cur) || PRESETS[0]); }
+    tDrag = null;
+  };
+  tempoEl.addEventListener('pointerup', tEnd); tempoEl.addEventListener('pointercancel', tEnd);
+  tempoEl.addEventListener('wheel', e => {
+    e.preventDefault();
+    tWheel += (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : -e.deltaY) / (e.deltaMode ? 1 : 25);
+    const step = Math.trunc(tWheel); if (step) { tWheel -= step; setBpm(STYLES[shown].bpm + step); }
+  }, { passive: false });
+  tempoEl.addEventListener('keydown', e => {
+    if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { e.preventDefault(); e.stopPropagation(); setBpm(STYLES[shown].bpm + 1); }
+    else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { e.preventDefault(); e.stopPropagation(); setBpm(STYLES[shown].bpm - 1); }
+    else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); const cur = STYLES[shown].bpm; setBpm(PRESETS.find(p => p > cur) || PRESETS[0]); }
+  });
+  function goTo(target) { anim = { from: pos, to: target, t0: now() }; choose(mod(Math.round(target), N)); }
+
+  /* ---------- input: drag (touch or mouse), scroll (trackpad or wheel), tap a neighbour, arrow keys ---------- */
+  let drag = null, wheelSnap = 0, lastWheelStep = 0;
+  picker.addEventListener('pointerdown', e => {
+    anim = null;
+    drag = { id: e.pointerId, x0: e.clientX, p0: pos, lx: e.clientX, lt: now(), v: 0, moved: 0 };
+    picker.setPointerCapture(e.pointerId);
+  });
+  picker.addEventListener('pointermove', e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const t = now(), dx = e.clientX - drag.x0;
+    drag.moved = Math.max(drag.moved, Math.abs(dx));
+    if (t > drag.lt) drag.v = drag.v * 0.6 + 0.4 * (e.clientX - drag.lx) / (t - drag.lt);
+    drag.lx = e.clientX; drag.lt = t;
+    pos = drag.p0 - dx / STEP;
+    choose(mod(Math.round(pos), N));
+  });
+  function endDrag(e) {
+    if (!drag || e.pointerId !== drag.id) return;
+    const d = drag; drag = null;
+    if (d.moved < 6) {                                         // a tap or click: the next style (the left neighbour: the previous)
+      const r = picker.getBoundingClientRect(), x = e.clientX - r.left, half = 45;
+      goTo(Math.round(pos) + (x < focusX() - half ? -1 : 1));
+      return;
+    }
+    goTo(Math.round(pos - Math.max(-1.5, Math.min(1.5, d.v * 0.12 / STEP))));   // a flick carries on
+  }
+  picker.addEventListener('pointerup', endDrag);
+  picker.addEventListener('pointercancel', endDrag);
+  picker.addEventListener('wheel', e => {
+    e.preventDefault();
+    const t = now();
+    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {             // trackpad: the strip follows, then settles
+      anim = null; pos += e.deltaX / STEP / 2; choose(mod(Math.round(pos), N));
+      clearTimeout(wheelSnap); wheelSnap = setTimeout(() => goTo(Math.round(pos)), 140);
+    } else if (t - lastWheelStep > 0.22 && Math.abs(e.deltaY) > 2) {   // a mouse wheel: one style per notch
+      lastWheelStep = t; goTo(Math.round(anim ? anim.to : pos) + Math.sign(e.deltaY));
+    }
+  }, { passive: false });
+  picker.addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); e.stopPropagation(); goTo(Math.round(anim ? anim.to : pos) + (e.key === 'ArrowRight' ? 1 : -1)); }
+  });
+
+  /* ---------- the rhyme: every frame is a function of the beat clock, so it can lock to the audio clock later ---------- */
+  const X = [72.6, 151.2, 238.8, 326.4];            // bubble centres (Figma)
+  const bubs = [...fig.querySelectorAll('.bub')], bubLayer = fig.querySelector('.bubbles');
+  const startEl = fig.querySelector('.start'), startLetters = [...startEl.children], START_W = [150, 125, 100, 75, 50];
+  let triDeg = 90, triDx = -27;                                // the triangle's pose, kept up on every screen
+  // the bubble on the beat is the knob (drawn separately); the others are 12, 6, 3 by distance from it
+  const size = (c, i) => i === c ? 0 : 24 / Math.pow(2, Math.abs(i - c));
+  let settle = null, rotOff = 0, stopX = 72.6;                 // stopX: where the knob stood on the last pause                              // settle: { t, tau } when stopped mid-beat; rotOff: where a stop left it
+  function rhyme(t) {
+    const b = beats(t), n = Math.floor(b);
+    // beat n started tau seconds ago; once stopped, time keeps running for the turn in progress, so it lands square
+    const tau = settle && !playing ? settle.tau + (t - settle.t) : (b - n) / seg.bps;
+    // triangle: pointing right at the start, a further quarter-turn clockwise on every beat; a restart carries on from
+    // wherever the last stop left it
+    const deg = rotOff + (n === 0 ? 90 : 90 + 90 * (n - 1) + 90 * S(tau, 20));   // the first beat finds it already in place
+    const dx = -27 * Math.sin(deg * Math.PI / 180);         // flat side flush with the edge it faces
+    triDeg = deg; triDx = dx;
+    // bubbles: from last beat's sizes to this beat's
+    const c = n % 4, p = (n + 3) % 4, k = n === 0 ? 1 : S(tau, 26);
+    // the start screen: on the first tap the small bubbles fly out from behind the big one on the left, one after
+    // another, to their places (and back in behind it on a stop); START pinches away as they go and stays away
+    const shown_ = playing ? S(t - playT, 26) : settle ? Math.max(0, 1 - S(t - settle.t, 26)) : 0;
+    // START is only for the very first screen: once played, a stop leaves it off
+    const sw = !firstPlayT ? 1 : playing && playT === firstPlayT ? Math.min(1, Math.max(0, 1 - shown_ * 1.6)) : 0;
+    startLetters.forEach((sp, i) => sp.style.setProperty('--w', (30 + (START_W[i] - 30) * sw).toFixed(1)));
+    startEl.style.opacity = sw.toFixed(3);
+    bubs.forEach((bb, i) => {
+      const lag = (i - 1) * 0.05;                              // each one leaves a moment after the one before
+      const f = i === 0 ? shown_ : playing ? S(t - playT - lag, 17) : settle ? Math.max(0, 1 - S(t - settle.t - Math.abs(X[i] - stopX) / 80 * 0.05, 17)) : 0;
+      // hidden behind the knob it would cut a hole in it (both use difference blending), so it is only out once moving
+      const d = (size(p, i) + (size(c, i) - size(p, i)) * k) * (i === 0 ? f : Math.min(1, f * 4));
+      // they fly out from where the knob waits (the centre before the very first play), and on a pause back into the
+      // knob wherever it stopped, and out from there again on the next play
+      const from = !firstPlayT || (playing && playT === firstPlayT) ? 201 : stopX;
+      bb.style.transform = `translateX(${(from + (X[i] - from) * f).toFixed(2)}px) scale(${Math.max(0, d / 24).toFixed(4)})`;
+    });
+  }
+
+  const IMP = (tau, w) => tau < 0 ? 0 : w * tau * Math.exp(1 - w * tau);   // a kick: peaks at 1 when tau = 1/w
+
+  /* ---------- tempo bars: a new arrangement on every 16th, springing; full height on the beat ---------- */
+  const BARS = [8, 24, 18, 6], barEls = [...document.querySelectorAll('.bars i')];
+  const barSet = n => BARS.map((_, i) => BARS[(i + n) % 4] * (n % 4 === 0 ? 1 : 0.78));
+  // stopped: four 4 px dots (silence); on start they spring up into the moving bars
+  // stopped: four 4 px dots on the bars' baseline (the bottom of the tallest bar). On play they rise to the middle line and
+  // grow into the moving bars; on a pause the bars shrink back into dots and settle on the baseline, on a spring both ways
+  let barStop = null;                                         // { t, h: [heights at the pause] }
+  function bars(t) {
+    const up = playing ? S(t - playT, 30) : barStop ? 1 - S(t - barStop.t, 24) : 0;
+    const top = (30 - 10 * up).toFixed(2) + 'px';
+    barEls.forEach(el => { el.style.top = top; });
+    if (!playing) {
+      const k = barStop ? S(t - barStop.t, 24) : 1;
+      barEls.forEach((el, i) => { const h0 = barStop ? barStop.h[i] : 4; el.style.height = Math.max(4, h0 + (4 - h0) * k).toFixed(2) + 'px'; });
+      return;
+    }
+    const q = beats(t) * 4, n = Math.floor(q), tau = (q - n) / (4 * seg.bps), b = barSet(n), k = S(tau, 34);
+    const a = n === 0 ? [4, 4, 4, 4] : barSet(n - 1), grow = S(t - playT, 22);   // they grow in from the dots
+    barEls.forEach((el, i) => { el.style.height = Math.max(4, 4 + (a[i] + (b[i] - a[i]) * k - 4) * grow).toFixed(2) + 'px'; });
+  }
+
+  /* ---------- the pad (step 2): the loop around the rim, hits from the halves and the H zone ---------- */
+  const pad = document.querySelector('.pad');
+  const STEPS = 32;                                            // both bars around the circle at once: no bar 1 / bar 2 switch
+  const RING = [null, { r: 143, d: 12 }, { r: 124, d: 6 }, { r: 109.5, d: 3 }];   // lanes 1 kick, 2 snare, 3 hat
+  const loops = STYLES.map(st => [null, [...st.k].map(Number), [...st.s].map(Number), [...st.h].map(Number)]);
+  function layer(cls) {
+    const L = document.createElement('div'); L.className = cls;
+    const dots = [];
+    for (let lane = 1; lane <= 3; lane++) for (let st = 0; st < STEPS; st++) {
+      const d = document.createElement('i'); d.className = 'dot';
+      const a = st * 2 * Math.PI / STEPS, { r, d: size } = RING[lane];
+      d.style.width = d.style.height = size + 'px'; d.style.margin = `${-size / 2}px 0 0 ${-size / 2}px`;
+      d.dataset.x = (Math.sin(a) * r).toFixed(2); d.dataset.y = (-Math.cos(a) * r).toFixed(2);
+      L.appendChild(d); dots.push({ el: d, lane, st });
+    }
+    L.insertAdjacentHTML('beforeend', '<p class="t lbl k">K</p><p class="t lbl h">H</p><p class="t lbl s">S</p>');
+    pad.appendChild(L); return { L, dots, lbl: [null, L.querySelector('.lbl.k'), L.querySelector('.lbl.s'), L.querySelector('.lbl.h')] };
+  }
+  const padBase = layer('base');
+  const rings = [null, 'k', 's', 'h'].map(c => { if (!c) return null; const r = document.createElement('i'); r.className = 'ring ' + c; padBase.L.prepend(r); return r; });
+  const flashAt = [null, -9, -9, -9];
+  let padKnob = null, knobMid = false;                        // the dot the knob sits on; or the middle (an empty step)
+  let cleared = null;                                          // { t, loop }: the loop just cleared, shrinking away
+  const removed = new Map();                                   // 'lane:step' → t: a tapped-off dot, shrinking away
+  const DOT_ZONE = 14;                                         // tap radius round a lit dot (28 px; the nearest lit dot wins)
+  function padRender(t) {
+    const loop = loops[shown], len = loop[1].length;
+    const q = beats(t) * 4, n = Math.floor(q), step = n % STEPS;   // the playhead goes round once every two bars
+    const tStep = (q - n) / (4 * seg.bps);
+    for (const layerObj of [padBase]) for (const d of layerObj.dots) {
+      const pop = d.st === step ? 0.6 * IMP(tStep, 22) : 0;
+      let sc = loop[d.lane][d.st % len] ? 1 + pop : 0;          // a one-bar loop shows twice round
+      if (padKnob && d.st === padKnob.st && d.lane === padKnob.lane) sc = 0;   // the knob sits on this one
+      if (cleared && !sc && cleared.loop[d.lane][d.st % len]) sc = 1 - S(t - cleared.t, 16);   // cleared dots shrink away
+      const rt = removed.get(d.lane + ':' + (d.st % len));
+      if (rt !== undefined && !sc) sc = 1 - S(t - rt, 16);
+      d.el.style.transform = `translate(${d.el.dataset.x}px, ${d.el.dataset.y}px) scale(${Math.max(0, sc).toFixed(3)})`;
+    }
+    // a hit flips its half instantly and flips back instantly 100 ms later, as in v1: no fade
+    const f = lane => { const tau = t - flashAt[lane]; return tau >= 0 && tau < 0.1 ? 1 : 0; };
+    const fk = f(1), fs = f(2), fh = f(3);
+    const on = [null, fk, fs, fh];
+    for (let lane = 1; lane <= 3; lane++) {
+      rings[lane].style.visibility = on[lane] ? 'visible' : 'hidden';
+      padBase.lbl[lane].classList.toggle('narrow', !!on[lane]);                     // tapped: narrow, not smaller
+      if (lane === 3) padBase.lbl[3].classList.toggle('small', knobMid && !on[3]);   // H, 16 px, inside the knob in the middle
+    }
+  }
+  function hit(lane, t) {
+    flashAt[lane] = t;
+    const loop = loops[shown], len = loop[1].length;
+    const n = Math.ceil(beats(t) * 4 - 0.05), st = mod(n, len), was = loop[lane][st];
+    loop[lane][st] = 1; removed.delete(lane + ':' + st);
+    soundHit(lane, n, was);    // lands on the next 16th and stays in the loop, as in v1
+  }
+  // hold still on the pad for 0.7 s (as in v1): the style's drum loop clears; moving the finger cancels it
+  let hold = null;
+  function clearLoop(t) {
+    const loop = loops[shown];
+    cleared = { t, loop: loop.map(l => l && l.slice()) };
+    for (let lane = 1; lane <= 3; lane++) loop[lane].fill(0);
+    resync(t); tick(520, 1); setTimeout(() => tick(390, 0.8), 70); setTimeout(() => tick(260, 0.6), 140);   // v1's clear
+  }
+  pad.addEventListener('pointerdown', e => {
+    if (morph < 0.9) return;
+    const r = pad.getBoundingClientRect(), sc = r.width / 322;
+    const x = (e.clientX - r.left) / sc - 161, y = (e.clientY - r.top) / sc - 161;
+    if (Math.hypot(x, y) > 175) return;
+    // a tap on a lit rim dot takes it out of the loop; the zone reaches DOT_ZONE px round the nearest lit dot
+    const loop = loops[shown], len = loop[1].length;
+    let best = null, bd = DOT_ZONE;
+    for (const d of padBase.dots) if (loop[d.lane][d.st % len]) {
+      const dd = Math.hypot(x - d.el.dataset.x, y - d.el.dataset.y);
+      if (dd <= bd) { bd = dd; best = d; }
+    }
+    if (best) { loop[best.lane][best.st % len] = 0; removed.set(best.lane + ':' + (best.st % len), now()); unsoundStep(best.lane, best.st % len); return; }
+    hit(Math.abs(x) <= 22 && Math.abs(y) <= 22 ? 3 : y < 0 ? 1 : 2, now());
+    const h = { id: e.pointerId, x: e.clientX, y: e.clientY };
+    h.timer = setTimeout(() => { if (hold === h) { clearLoop(now()); hold = null; } }, 700);
+    hold = h;
+  });
+  pad.addEventListener('pointermove', e => { if (hold && e.pointerId === hold.id && Math.hypot(e.clientX - hold.x, e.clientY - hold.y) > 14) { clearTimeout(hold.timer); hold = null; } });
+  for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) pad.addEventListener(ev, e => { if (hold && e.pointerId === hold.id) { clearTimeout(hold.timer); hold = null; } });
+
+  /* ---------- the music: v1's, unchanged ----------
+     Every style but Dubstep plays on v1's synth (audio/synth-v1.js, v1's AudioWorklet copied verbatim) with v1's sound
+     settings below. Dubstep isn't in v1: it plays on v2's synth (audio/synth-v2.js: the growl drop over the recorded
+     kit), with v2's settings. Both run side by side; a style sends to its own. The loop (K S H) is the pad's; M, the
+     melody line (Dubstep: the drop), is v1's and not shown. The beat clock above drives the audio: each 16th is sent
+     ahead (120 ms) at the matching audio frame, swung as in v1. ?mute keeps it silent. */
+  const Q = new URLSearchParams(location.search), MUTE = Q.has('mute');
+  const SYNTH_V = 'm3';                                        // bump when audio/synth-*.js change (browsers cache them)
+  const EV = { FILT: 20, KICK: 1, SNARE: 2, HAT: 3, CLICK: 4, PLUCK: 5, TICK: 6, BELL: 7, KEYS: 8, GLASS: 9, BON: 10, BFREQ: 11, BOFF: 12, BTONE: 13, TSTART: 30, TRESTART: 31, KIT: 14, AMEL: 15,
+               CLAP: 16, RIM: 17, OHAT: 18, RIDE: 21, TAMB: 22, WOB: 23, ABASS: 25, CRASH: 26, GROWL: 27 };
+  const MEL_EV = [EV.PLUCK, EV.BELL, EV.KEYS, EV.GLASS];
+  const MEL = [0, 2, 4, 7, 5, 4, 2, 4, 0, 2, 4, 7, 9, 7, 5, 4];   // v1's melody, scale steps above the root
+  const P = s => [...s].map(Number);
+  // v1 style index (for its interface tick pitches): Deep House 0, 2-Step 1, Lo-fi 2, D&B 3, Techno 4; v2's Dubstep 5
+  const SOUND = {
+    DEEPHOUSE: { synth: 1, idx: 0, swing: 0.56, kick: 1, snare: EV.CLAP, hat: EV.OHAT, hatVel: () => 0.5,
+      tones: { mel: 2, bass: 1, smel: 2 }, m: P('0010001000100100') },
+    '2STEP': { synth: 1, idx: 1, swing: 0.64, kick: 4, snare: EV.SNARE, hat: EV.HAT, acHat: EV.TAMB, acSnare2: EV.RIM, hatVel: s => s % 2 ? 0.4 : 0.55,
+      tones: { mel: 0, bass: 2, smel: 3 }, m: P('1000001000010000' + '0010000010000100') },
+    'DRUM&BASS': { synth: 1, idx: 3, swing: 0.5, kick: 4, snare: EV.SNARE, hat: EV.HAT, acHat: EV.RIDE, hatVel: s => s % 2 ? 0.3 : 0.5,
+      ghost: [7, 10, 15, 23, 26, 30], chord: [0, 2, 4], chordShift: -2,
+      tones: { mel: 1, bass: 2, smel: 2 }, m: P('1000000000100000' + '0000001000000010') },
+    TECHNO: { synth: 1, idx: 4, swing: 0.5, kick: 2, snare: EV.CLAP, hat: EV.HAT, hatVel: s => s % 4 === 2 ? 0.62 : 0.26,
+      tones: { mel: 1, bass: 0, smel: 1 }, m: P('0010000000100001') },
+    DUBSTEP: { synth: 2, idx: 5, swing: 0.5, kick: 2, snare: EV.SNARE, hat: EV.HAT, hatVel: s => s % 4 === 2 ? 0.5 : 0.3, wobble: 2, acCrash: 1,
+      kitLock: 1, kickLayer: 1, bigSnare: 1, tones: { mel: 3, bass: 2, smel: 2 },
+      growl: { 0: [0, 3, 2, 0], 3: [0, 1, 0, 2], 4: [0, 2, 4, 0], 6: [2, 2, 3, 1], 10: [0, 2, 3, 1], 12: [-1, 2, 0, 2], 14: [0, 2, 8, 0],
+               16: [0, 4, 1, 0], 20: [3, 2, 4, 0], 22: [5, 2, 0, 3], 26: [0, 1, 0, 2], 27: [1, 1, 0, 2], 28: [0, 2, 8, 0], 30: [4, 1, 0, 2], 31: [3, 1, 0, 2] },
+      m: P('1001101000101011' + '1000101000110111') },
+  };
+  const snd = () => SOUND[STYLES[shown].name];
+  const muted = [false, false, false, false];                // the sequencer's line mutes: M, K (D), S, H (v1: for every style)
+  let kitPick = 0;                                             // the sound-source switch: 0 synth, 1 acoustic (v1's default: synth)
+  const kitNow = () => snd().kitLock != null ? snd().kitLock : kitPick;   // Dubstep is always the recorded kit, as in v2
+  // the key (v1's): a root a semitone step from A, minor or major pentatonic; it starts on v1's A minor
+  const SCALES = [[0, 3, 5, 7, 10], [0, 2, 4, 7, 9]], ROOTS = ['A', 'B♭', 'B', 'C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭'];
+  const key = { root: 0, scale: 0 };
+  const rootSemi = r => r <= 6 ? r : r - 12;                   // keep the range centred on A
+  const noteHz = i => 440 * Math.pow(2, (33 + rootSemi(key.root) + SCALES[key.scale][mod(i, 5)] + 12 * Math.floor(i / 5) - 69) / 12);
+  // what a lane plays on a step: v1's laneEvents/laneEvent (v2's for Dubstep), as [type, a, b] lists
+  function laneEvents(lane, step, sy, melVel = 0.55) {
+    const kit = kitNow();
+    if (lane === 1) {
+      const k = [EV.KICK, 1, sy.kick + (sy.kickLayer ? 10 : 0)];
+      return step === 0 && sy.acCrash && kit ? [k, [EV.CRASH, 0.75, 0]] : [k];
+    }
+    if (lane === 2) return [[kit && sy.acSnare2 && step >= 16 ? sy.acSnare2 : sy.snare, sy.ghost && sy.ghost.includes(step) ? 0.28 : 0.85, sy.bigSnare ? 1 : 0]];
+    if (lane === 3) return [[kit && sy.acHat ? sy.acHat : sy.hat, sy.hatVel(step), 0]];
+    if (sy.growl) {                                            // the drop: pitch, length and wobble rate packed into b
+      const [deg, len, div, shape] = sy.growl[step] || [0, 2, 3, 0], bps = seg.bps;
+      return [[EV.GROWL, noteHz(deg), Math.round(len / (4 * bps) * 1000) * 10000 + Math.round(div * bps * 10) * 10 + shape]];
+    }
+    const one = (deg, v) => kit ? [EV.AMEL, noteHz(deg), sy.tones.smel * 10 + v] : [MEL_EV[sy.tones.mel], noteHz(deg), v];
+    if (!sy.chord) return [one(MEL[step % 16] + 10, melVel)];
+    return sy.chord.map(d => one(MEL[step % 16] + 10 + (sy.chordShift || 0) + d, melVel * 0.62));
+  }
+  const gridId = (n, lane) => 1e7 + n * 8 + lane;
+
+  // the recordings (v1's 67, plus v2's crash for Dubstep), fetched after the first frame and decoded once audio starts
+  const AC_DATA = [{"slot":"piano","root":55,"f":"samples/piano-1.mp3"},{"slot":"piano","root":60,"f":"samples/piano-2.mp3"},{"slot":"piano","root":67,"f":"samples/piano-3.mp3"},{"slot":"piano","root":72,"f":"samples/piano-4.mp3"},{"slot":"piano","root":79,"f":"samples/piano-5.mp3"},{"slot":"piano","root":84,"f":"samples/piano-6.mp3"},{"slot":"marimba","root":53,"f":"samples/marimba-1.mp3"},{"slot":"marimba","root":60,"f":"samples/marimba-2.mp3"},{"slot":"marimba","root":67,"f":"samples/marimba-3.mp3"},{"slot":"marimba","root":71,"f":"samples/marimba-4.mp3"},{"slot":"marimba","root":77,"f":"samples/marimba-5.mp3"},{"slot":"marimba","root":84,"f":"samples/marimba-6.mp3"},{"slot":"guitar","root":54.85,"f":"samples/guitar-1.mp3"},{"slot":"guitar","root":59.86,"f":"samples/guitar-2.mp3"},{"slot":"guitar","root":66.92,"f":"samples/guitar-3.mp3"},{"slot":"guitar","root":71.9,"f":"samples/guitar-4.mp3"},{"slot":"guitar","root":78.8,"f":"samples/guitar-5.mp3"},{"slot":"guitar","root":82.8,"f":"samples/guitar-6.mp3"},{"slot":"kick","root":null,"f":"samples/kick-1.mp3"},{"slot":"kick","root":null,"f":"samples/kick-2.mp3"},{"slot":"kick","root":null,"f":"samples/kick-3.mp3"},{"slot":"snare","root":null,"f":"samples/snare-1.mp3"},{"slot":"snare","root":null,"f":"samples/snare-2.mp3"},{"slot":"snare","root":null,"f":"samples/snare-3.mp3"},{"slot":"chh","root":null,"f":"samples/chh-1.mp3"},{"slot":"chh","root":null,"f":"samples/chh-2.mp3"},{"slot":"chh","root":null,"f":"samples/chh-3.mp3"},{"slot":"ohh","root":null,"f":"samples/ohh-1.mp3"},{"slot":"ohh","root":null,"f":"samples/ohh-2.mp3"},{"slot":"side","root":null,"f":"samples/side-1.mp3"},{"slot":"side","root":null,"f":"samples/side-2.mp3"},{"slot":"clap","root":null,"f":"samples/clap-1.mp3"},{"slot":"clap","root":null,"f":"samples/clap-2.mp3"},{"slot":"shaker","root":null,"f":"samples/shaker-1.mp3"},{"slot":"shaker","root":null,"f":"samples/shaker-2.mp3"},{"slot":"ride","root":null,"f":"samples/ride-1.mp3"},{"slot":"ride","root":null,"f":"samples/ride-2.mp3"},{"slot":"vibes","root":52,"f":"samples/vibes-1.mp3"},{"slot":"vibes","root":55,"f":"samples/vibes-2.mp3"},{"slot":"vibes","root":59,"f":"samples/vibes-3.mp3"},{"slot":"vibes","root":62,"f":"samples/vibes-4.mp3"},{"slot":"vibes","root":65,"f":"samples/vibes-5.mp3"},{"slot":"vibes","root":69,"f":"samples/vibes-6.mp3"},{"slot":"vibes","root":72,"f":"samples/vibes-7.mp3"},{"slot":"vibes","root":76,"f":"samples/vibes-8.mp3"},{"slot":"tambHit","root":null,"f":"samples/tambHit-1.mp3"},{"slot":"tambHit","root":null,"f":"samples/tambHit-2.mp3"},{"slot":"tambShake","root":null,"f":"samples/tambShake-1.mp3"},{"slot":"tambShake","root":null,"f":"samples/tambShake-2.mp3"},{"slot":"clave","root":null,"f":"samples/clave-1.mp3"},{"slot":"clave","root":null,"f":"samples/clave-2.mp3"},{"slot":"wood","root":null,"f":"samples/wood-1.mp3"},{"slot":"wood","root":null,"f":"samples/wood-2.mp3"},{"slot":"wood","root":null,"f":"samples/wood-3.mp3"},{"slot":"bass","root":23.75,"f":"samples/bass-1.mp3"},{"slot":"bass","root":26.8,"f":"samples/bass-2.mp3"},{"slot":"bass","root":30.01,"f":"samples/bass-3.mp3"},{"slot":"bass","root":32.82,"f":"samples/bass-4.mp3"},{"slot":"bass","root":35.83,"f":"samples/bass-5.mp3"},{"slot":"bass","root":39.15,"f":"samples/bass-6.mp3"},{"slot":"bass","root":42,"f":"samples/bass-7.mp3"},{"slot":"bass","root":45,"f":"samples/bass-8.mp3"},{"slot":"bass","root":48,"f":"samples/bass-9.mp3"},{"slot":"bass","root":50.91,"f":"samples/bass-10.mp3"},{"slot":"bass","root":54,"f":"samples/bass-11.mp3"},{"slot":"bass","root":56.95,"f":"samples/bass-12.mp3"},{"slot":"bass","root":60,"f":"samples/bass-13.mp3"},{"slot":"crash","root":null,"f":"samples/crash-1.mp3"},{"slot":"crash","root":null,"f":"samples/crash-2.mp3"}];
+  const acSet = (slot, list = AC_DATA) => list.map((s, i) => s.slot === slot ? { i, root: s.root } : null).filter(Boolean);
+  const AC_SETS1 = { mel: [acSet('guitar'), acSet('marimba'), acSet('piano'), acSet('vibes')], bass: acSet('bass'), kick: acSet('kick'),
+    snare: acSet('snare'), chh: acSet('chh'), ohh: acSet('ohh'), side: acSet('side'), clap: acSet('clap'), shaker: acSet('shaker'),
+    clave: acSet('clave'), wood: acSet('wood'), ride: acSet('ride'), tambHit: acSet('tambHit'), tambShake: acSet('tambShake') };
+  const DUB = AC_DATA.filter(s => ['kick', 'snare', 'clap', 'chh', 'crash'].includes(s.slot));   // all Dubstep needs
+  const AC_SETS2 = { mel: [[], [], [], [], []], bass: [], ebass: [], eguitar: [], rockO: [], rockP: [], ohh: [], side: [], shaker: [],
+    clave: [], wood: [], ride: [], tambHit: [], tambShake: [] };
+  for (const k of ['kick', 'snare', 'clap', 'chh', 'crash']) AC_SETS2[k] = acSet(k, DUB);
+  let acBytes = null;
+  const acFetch = () => acBytes || (acBytes = Promise.all(AC_DATA.map(s => fetch(s.f).then(r => { if (!r.ok) throw new Error(s.f); return r.arrayBuffer(); }))));
+  async function acDecode(ctx) {                               // v1's: skip the MP3 lead-in, keep 1.5 ms before the onset
+    return Promise.all((await acFetch()).map(async b => {
+      const buf = await ctx.decodeAudioData(b.slice(0));
+      const L = buf.getChannelData(0), R = buf.numberOfChannels > 1 ? buf.getChannelData(1) : L;
+      let pk = 0; for (let i = 0; i < L.length; i++) pk = Math.max(pk, Math.abs(L[i]), Math.abs(R[i]));
+      let on = 0; while (on < L.length && Math.max(Math.abs(L[on]), Math.abs(R[on])) < pk * 0.02) on++;
+      on = Math.max(0, on - Math.round(0.0015 * buf.sampleRate));
+      return { L: L.slice(on), R: R.slice(on) };
+    }));
+  }
+
+  // iOS: unlock Web Audio inside the touch, and loop a silent media element so the mute switch doesn't silence it (v1's)
+  const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  let silentEl = null;
+  function unmuteIOS() {
+    if (!IS_IOS || silentEl) return;
+    const n = 800, v = new DataView(new ArrayBuffer(44 + n)), w4 = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+    w4(0, 'RIFF'); v.setUint32(4, 36 + n, true); w4(8, 'WAVE'); w4(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true);
+    v.setUint16(22, 1, true); v.setUint32(24, 8000, true); v.setUint32(28, 8000, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true);
+    w4(36, 'data'); v.setUint32(40, n, true); for (let i = 0; i < n; i++) v.setUint8(44 + i, 128);
+    let bin = ''; new Uint8Array(v.buffer).forEach(b => { bin += String.fromCharCode(b); });
+    silentEl = document.createElement('audio'); silentEl.setAttribute('x-webkit-airplay', 'deny'); silentEl.loop = true;
+    silentEl.src = 'data:audio/wav;base64,' + btoa(bin); silentEl.play().catch(() => { silentEl = null; });
+  }
+  function unlock(ctx) { try { const s = ctx.createBufferSource(); s.buffer = ctx.createBuffer(1, 1, ctx.sampleRate); s.connect(ctx.destination); s.start(0); } catch (_) {} }
+
+  const AU = { ctx: null, node: [null, null, null], ready: false, anchored: false, off: 0, sr: 48000, gridN: -1, floor: Infinity, log: Q.has('debug') ? [] : null };
+  // The engine is built as soon as the page opens (audioInit: the context, still suspended, both synths and the
+  // recordings), so the first tap only has to switch it on (audioStart); otherwise the first beats would be lost
+  // while it loads.
+  function audioStart() {
+    if (MUTE) return;
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (_) {}
+    unmuteIOS();
+    if (!AU.ctx) audioInit();
+    if (AU.ctx) { unlock(AU.ctx); if (AU.ctx.state !== 'running') AU.ctx.resume().catch(() => {}); }
+  }
+  async function audioInit() {
+    if (MUTE || AU.ctx) return;
+    const C = window.AudioContext || window.webkitAudioContext; if (!C) return;
+    try { AU.ctx = new C({ latencyHint: 'interactive' }); } catch (_) { AU.ctx = new C(); }
+    AU.sr = AU.ctx.sampleRate;
+    AU.ctx.onstatechange = () => { AU.anchored = false; };
+    try {
+      await AU.ctx.audioWorklet.addModule('audio/synth-v1.js?' + SYNTH_V);   // versioned, so a browser never runs a stale copy
+      await AU.ctx.audioWorklet.addModule('audio/synth-v2.js?' + SYNTH_V);
+    } catch (err) { console.warn('audio engine failed to load', err); return; }
+    for (const v of [1, 2]) {
+      const n = AU.node[v] = new AudioWorkletNode(AU.ctx, v === 1 ? 'synth' : 'synth2', { numberOfInputs: 0, outputChannelCount: [2] });
+      n.connect(AU.ctx.destination);
+    }
+    for (const v of [1, 2]) AU.node[v].port.onmessage = e => { if (v === snd().synth) onMeter(e.data); };   // the bass meter: only the synth in use
+    post(1, [[EV.BTONE, 0, SOUND[STYLES[shown].name].synth === 1 ? bassTone[shown] : 1, 0, 0], [EV.KIT, 0, kitPick, 0, 0]]);
+    post(2, [[EV.BTONE, 0, SOUND.DUBSTEP.tones.bass, 0, 0], [EV.KIT, 0, 1, 0, 0], [EV.WOB, 0, STYLES[DUBSTEP].bpm / 60 * 2, 0, 0], [EV.ABASS, 0, 0, 0, 0]]);
+    AU.ready = true;
+    acDecode(AU.ctx).then(smp => {
+      AU.node[1].port.postMessage({ acSamples: smp, acSets: AC_SETS1 });
+      AU.node[2].port.postMessage({ acSamples: AC_DATA.map((s, i) => DUB.includes(s) ? smp[i] : null).filter(Boolean), acSets: AC_SETS2 });
+    }).catch(err => console.warn('recordings unavailable, the modelled kit plays instead', err));
+  }
+  // the bass voices' own meter, sent by the synth every ~10 ms: [rms, mean step between samples]. Turned into
+  // 0 … 1 against a slowly falling peak, so each sound uses the whole range: lv (loudness), grit (step / rms)
+  // Each reading is also compared with its own recent average (~0.3 s): the blur shows the bass's moment-to-moment
+  // change, magnified, so every flutter, filter snap and wobble of the sound reads as a glitch in the blur.
+  const BM = { rms: 0, g: 0, aR: 0, aG: 0, at: 0, flick: 1 };
+  // the same for the whole output after the filter (om): drives the Filter screen's glitch
+  const OM = { rms: 0, aR: 0, aG: 0, at: 0, flick: 1, lv: 0.5 };
+  function onOutMeter(d) {
+    if (!d.om) return;
+    const r = d.om[0], g = d.om[1] / (d.om[0] + 1e-4);
+    OM.aR += (r - OM.aR) * 0.035; OM.aG += (g - OM.aG) * 0.035;
+    const er = (r - OM.aR) / (OM.aR + 1e-4), eg = (g - OM.aG) / (OM.aG + 1e-4);
+    OM.flick = Math.max(0.3, Math.min(2, 1 + 2.5 * er + 2.5 * eg));
+    OM.lv = Math.min(1, r / Math.max(0.02, OM.aR * 1.6)); OM.at = now();
+  }
+  const outMeter = () => !AU.ready || now() - OM.at > 0.2 ? { lv: 0.5, flick: 1 } : OM;
+  function onMeter(d) {
+    onOutMeter(d);
+    if (!d.bm) return;
+    const r = d.bm[0], g = d.bm[1] / (d.bm[0] + 1e-4);
+    BM.aR += (r - BM.aR) * 0.035; BM.aG += (g - BM.aG) * 0.035;
+    const er = (r - BM.aR) / (BM.aR + 1e-4), eg = (g - BM.aG) / (BM.aG + 1e-4);
+    BM.flick = Math.max(0.35, Math.min(1.9, 1 + 3 * er + 2 * eg));
+    BM.rms = r; BM.at = now();
+  }
+  function bassMeter() {
+    if (!AU.ready || now() - BM.at > 0.2) return { lv: 0.5, flick: 1 };   // no sound (muted, or not started): steady
+    return { lv: Math.min(1, BM.rms / Math.max(0.02, BM.aR * 1.6)), flick: BM.flick };
+  }
+  // app time (performance clock, seconds) ↔ audio frames: anchored to what is audible now, so sound and picture agree
+  function audibleAt(pMs) {
+    const c = AU.ctx, ts = c.getOutputTimestamp ? c.getOutputTimestamp() : null;
+    if (ts && ts.contextTime > 0 && ts.performanceTime > 0 && Math.abs(ts.performanceTime - performance.now()) < 1000) return ts.contextTime + (pMs - ts.performanceTime) / 1000;
+    return c.currentTime - (c.outputLatency || c.baseLatency || 0.01) + (pMs - performance.now()) / 1000;
+  }
+  const toFrame = t => Math.round((t - AU.off) * AU.sr);
+  // events: [type, app time, a, b, id]; app time 0 = at once
+  function post(v, evs) {
+    if (!AU.ready && evs.some(e => e[1])) return;
+    if (!evs.length || !AU.node[v]) return;
+    const a = new Float64Array(evs.length * 5);
+    evs.forEach((e, i) => a.set([e[0], e[1] ? toFrame(e[1]) : 0, e[2], e[3], e[4]], i * 5));
+    AU.node[v].port.postMessage({ ev: a });
+    if (AU.log) for (const e of evs) { AU.log.push([STYLES[shown].name, ...e]); if (AU.log.length > 4000) AU.log.shift(); }
+  }
+  // the 16th n of the beat clock, in app time; odd 16ths are pushed late by the style's swing (v1's tickTime)
+  function stepTime(n) {
+    const sw = snd().swing, b = n / 4 + ((n & 1) && sw > 0.5 ? (sw - 0.5) * 0.5 : 0);
+    return timeAtBeat(b);
+  }
+  // drop what was sent ahead and send again from t on (a new tempo, style, kit or loop)
+  function resync(t = now()) {
+    if (!AU.ready || !AU.anchored) return;
+    for (const v of [1, 2]) AU.node[v].port.postMessage({ cancelGrid: toFrame(t) });
+    AU.gridN = Math.floor(beats(t) * 4) - 1; AU.floor = t;
+  }
+  function pump() {
+    if (!AU.ready || AU.ctx.state !== 'running') return;
+    if (!AU.anchored) {
+      const a = audibleAt(performance.now()); if (!isFinite(a)) return;   // (just after a resume it can read below 0: fine)
+      AU.off = now() - a; AU.anchored = true;
+      for (const v of [1, 2]) AU.node[v].port.postMessage({ clear: 1 });
+      resync();
+    }
+    if (!playing) return;
+    const sy = snd(), v = sy.synth, len = loops[shown][1].length, horizon = now() + 0.12, out = [];
+    for (let k = 0; k < 64; k++) {
+      const n = AU.gridN + 1, tn = stepTime(n);
+      if (tn === undefined || tn > horizon) break;           // (undefined: the tape is held, wait)
+      AU.gridN = n;
+      if (tn === null || tn < AU.floor) continue;            // (null: wound past during a tape stop)
+      const s = mod(n, len);
+      if (mode === 0 && mod(n, 4) === 0) out.push([EV.CLICK, tn, s === 0 ? 0.7 : 0.4, 0, gridId(n, 4)]);   // v1's Pulse click
+      if (!muted[0] && sy.m[mod(n, sy.m.length)]) for (const e of laneEvents(0, mod(n, sy.m.length), sy)) out.push([e[0], tn, e[1], e[2], gridId(n, 0)]);
+      for (let lane = 1; lane <= 3; lane++) if (!muted[lane] && loops[shown][lane][s]) for (const e of laneEvents(lane, s, sy)) out.push([e[0], tn, e[1], e[2], gridId(n, lane)]);
+    }
+    post(v, out);
+  }
+  const tick = (a, b) => { if (AU.ready && AU.anchored) post(snd().synth, [[EV.TICK, now(), a, b, 0]]); };
+  // a pad hit sounds on its 16th (as in v1); if that 16th was already sent without it, send it now
+  function soundHit(lane, n, was) {
+    if (!AU.ready || !AU.anchored) return;
+    const sy = snd(), len = loops[shown][1].length, s = mod(n, len);
+    if (!playing) { post(sy.synth, laneEvents(lane, s, sy, 0.4).map(e => [e[0], now(), e[1], e[2], 0])); return; }
+    if (was || n > AU.gridN) return;
+    post(sy.synth, laneEvents(lane, s, sy).map(e => [e[0], Math.max(now(), stepTime(n)), e[1], e[2], gridId(n, lane)]));
+  }
+  // a dot tapped off: take it back out of what was already sent
+  function unsoundStep(lane, s) {
+    if (!AU.ready || !AU.anchored) return;
+    const len = loops[shown][1].length;
+    for (let n = Math.floor(beats(now()) * 4); n <= AU.gridN; n++) if (mod(n, len) === s) for (const v of [1, 2]) AU.node[v].port.postMessage({ cancelId: gridId(n, lane) });
+    tick(330, 0.6);
+  }
+  // the sound-source switch: v1's setKit. Dubstep keeps its recorded kit (as in v2); the choice holds for the other styles
+  const kitBtn = document.querySelector('.kit');
+  function kitShow() {
+    const syn = !kitNow();
+    kitBtn.classList.toggle('synth', syn);
+    kitBtn.setAttribute('aria-label', `Sound source: ${syn ? 'synth' : 'acoustic'}. Switch to ${syn ? 'acoustic' : 'synth'}`);
+  }
+  kitBtn.addEventListener('click', () => {
+    if (snd().kitLock != null) { tick(500, 0.4); return; }
+    kitPick ^= 1; kitShow();
+    post(1, [[EV.KIT, 0, kitPick, 0, 0]]); tick(kitPick ? 990 : 740, 0.45); resync();
+  });
+  // the key control: tap flips major / minor, a sideways drag walks the root (v1's gestures and ticks)
+  const keyEl = document.querySelector('.key'), keyZone = document.querySelector('.keyzone');
+  const mouth = document.querySelector('.face .mouth'), eyes = document.querySelector('.face .eyes');
+  let moodAt = -9, moodFrom = -1, letterAt = -9, letterShown = null;
+  const keyLabel = () => { const n = ROOTS[key.root]; return n[0] + (n[1] ? `<span class="acc">${n[1] === '♭' ? 'b' : '#'}</span>` : ''); };
+  function setKey(root, scale) {
+    if (root === key.root && scale === key.scale) return;
+    const t = now();
+    if (scale !== key.scale) { moodFrom = key.scale ? 1 : -1; moodAt = t; }
+    if (root !== key.root) letterAt = t;
+    key.root = root; key.scale = scale;
+    keyZone.setAttribute('aria-label', `Key: ${ROOTS[root]} ${scale ? 'major' : 'minor'}. Tap for major or minor, drag sideways to change the note`);
+    resync(); tick(900, 0.35);
+  }
+  function keyRender(t) {
+    // mouth: +1 smile (major) … -1 frown (minor), turning over through flat with a little overshoot
+    const to = key.scale ? 1 : -1, u = t - moodAt, m = moodFrom + (to - moodFrom) * S(u, 24, 0.55);
+    mouth.style.transform = `scaleY(${m.toFixed(3)})`;
+    const bl = u >= 0 && u < 0.22 ? Math.sin(Math.PI * u / 0.22) : 0;   // the blink, shut as the mouth passes flat
+    eyes.style.transform = bl > 0.01 ? `scaleY(${(1 - 0.9 * bl).toFixed(3)})` : '';
+    // letter: pinches to width 30 over 75 ms, swaps, widens back over 75 ms
+    const v = t - letterAt, w = v >= 0 && v < 0.15 ? 150 - 120 * Math.sin(Math.PI * v / 0.15) : 150;
+    const want = v < 0.075 && letterShown !== null ? letterShown : keyLabel();
+    if (want !== keyEl.innerHTML) keyEl.innerHTML = want;
+    if (v >= 0.075 || letterShown === null) letterShown = keyLabel();
+    keyEl.style.setProperty('--w', w.toFixed(1));
+  }
+  let kDrag = null;
+  keyZone.addEventListener('pointerdown', e => { kDrag = { id: e.pointerId, x: e.clientX, root0: key.root, moved: false }; keyZone.setPointerCapture(e.pointerId); });
+  keyZone.addEventListener('pointermove', e => {
+    if (!kDrag || e.pointerId !== kDrag.id) return;
+    const dx = e.clientX - kDrag.x; if (Math.abs(dx) > 8) kDrag.moved = true;
+    if (kDrag.moved) setKey(mod(kDrag.root0 + Math.round(dx / 26), 12), key.scale);
+  });
+  const kEnd = e => { if (!kDrag || e.pointerId !== kDrag.id) return; if (!kDrag.moved && e.type === 'pointerup') setKey(key.root, 1 - key.scale); kDrag = null; };
+  keyZone.addEventListener('pointerup', kEnd); keyZone.addEventListener('pointercancel', kEnd);
+  keyZone.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setKey(key.root, 1 - key.scale); }
+    else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { e.preventDefault(); e.stopPropagation(); setKey(mod(key.root + 1, 12), key.scale); }
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { e.preventDefault(); e.stopPropagation(); setKey(mod(key.root - 1, 12), key.scale); }
+  });
+  setInterval(pump, 25);                                       // keeps sending when frames are throttled
+  // Browsers only let sound start on a finished gesture (a lift, a click, a key), not on the press itself, so a touch
+  // that started the music on pointerdown can leave the engine suspended. Every lift resumes it (v1 did the same).
+  for (const type of ['pointerup', 'touchend', 'click', 'keydown']) addEventListener(type, () => {
+    if (MUTE) return;
+    if (!AU.ctx) { if (playing) audioStart(); return; }
+    if (AU.ctx.state !== 'running') { unlock(AU.ctx); AU.ctx.resume().catch(() => {}); }
+  }, { capture: true, passive: true });
+  // ?debug: __aud.render(bars) renders the current style offline (16-bit stereo WAV, base64) for listening checks
+  async function renderBars(bars) {
+    const sy = snd(), v = sy.synth, len = loops[shown][1].length, sr = 44100, spb = 1 / seg.bps, dur = bars * 4 * spb + 2;
+    const oc = new OfflineAudioContext(2, Math.ceil(dur * sr), sr);
+    await oc.audioWorklet.addModule('audio/synth-v' + v + '.js?' + SYNTH_V);
+    const node = new AudioWorkletNode(oc, v === 1 ? 'synth' : 'synth2', { numberOfInputs: 0, outputChannelCount: [2] }); node.connect(oc.destination);
+    const smp = await acDecode(oc);
+    node.port.postMessage(v === 1 ? { acSamples: smp, acSets: AC_SETS1 } : { acSamples: AC_DATA.map((s, i) => DUB.includes(s) ? smp[i] : null).filter(Boolean), acSets: AC_SETS2 });
+    const evs = [[EV.BTONE, 0, sy.tones.bass, 0, 0], [EV.KIT, 0, kitNow(), 0, 0], [EV.WOB, 0, sy.wobble ? seg.bps * sy.wobble : 0, 0, 0], [EV.ABASS, 0, 0, 0, 0]];
+    for (let n = 0; n < bars * 16; n++) {
+      const sw = sy.swing, tn = 0.05 + (n / 4 + ((n & 1) && sw > 0.5 ? (sw - 0.5) * 0.5 : 0)) * spb, s = mod(n, len);
+      if (sy.m[mod(n, sy.m.length)]) for (const e of laneEvents(0, mod(n, sy.m.length), sy)) evs.push([e[0], Math.round(tn * sr), e[1], e[2], 0]);
+      for (let lane = 1; lane <= 3; lane++) if (loops[shown][lane][s]) for (const e of laneEvents(lane, s, sy)) evs.push([e[0], Math.round(tn * sr), e[1], e[2], 0]);
+    }
+    await new Promise(res => { node.port.onmessage = m => { if (m.data.pong === 1) res(); }; node.port.postMessage({ ev: new Float64Array(evs.flat()) }); node.port.postMessage({ ping: 1 }); });
+    const buf = await oc.startRendering(), L = buf.getChannelData(0), R = buf.getChannelData(1), N = L.length;
+    const dv = new DataView(new ArrayBuffer(44 + N * 4)), w4 = (o, x) => [...x].forEach((c, i) => dv.setUint8(o + i, c.charCodeAt(0)));
+    w4(0, 'RIFF'); dv.setUint32(4, 36 + N * 4, true); w4(8, 'WAVE'); w4(12, 'fmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 2, true);
+    dv.setUint32(24, sr, true); dv.setUint32(28, sr * 4, true); dv.setUint16(32, 4, true); dv.setUint16(34, 16, true); w4(36, 'data'); dv.setUint32(40, N * 4, true);
+    for (let i = 0; i < N; i++) { dv.setInt16(44 + i * 4, Math.max(-1, Math.min(1, L[i])) * 32767, true); dv.setInt16(46 + i * 4, Math.max(-1, Math.min(1, R[i])) * 32767, true); }
+    let bin = ''; const u = new Uint8Array(dv.buffer); for (let i = 0; i < u.length; i += 32768) bin += String.fromCharCode(...u.subarray(i, i + 32768));
+    return btoa(bin);
+  }
+  if (AU.log) window.__aud = { AU, SOUND, laneEvents, stepTime, render: renderBars, kit: k => { kitPick = k; kitShow(); }, get shown() { return STYLES[shown].name; } };
+
+  /* ---------- the one shape: triangle (step 1) ↔ circle (step 2) ----------
+     The morph rounds the triangle off: its corners round first (the triangle shrunk toward its incentre and grown back
+     by the corner radius), then the whole outline eases out to the 161 px circle, so every frame on the way is a
+     clean convex shape. The outline is sampled as rays from the shape's centre. */
+  const shapePath = fig.querySelector('.shape path'), gapEl = fig.querySelector('.shape .gap');
+  const RAYS = 180;
+  function triVerts(extra = 0) {                               // the 402 × 348 triangle, turned and shifted like the rhyme
+    const a = (triDeg + extra) * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a);
+    return [[0, -174], [201, 174], [-201, 174]].map(([x, y]) => [201 + triDx + x * c - y * sn, 201 + x * sn + y * c]);
+  }
+  function roundedOutline(V, rho) {                            // the triangle with corners of radius rho, as a polygon
+    const L = i => Math.hypot(V[(i + 1) % 3][0] - V[(i + 2) % 3][0], V[(i + 1) % 3][1] - V[(i + 2) % 3][1]);   // side opposite i
+    const a = [L(0), L(1), L(2)], P = a[0] + a[1] + a[2];
+    const I = [(a[0] * V[0][0] + a[1] * V[1][0] + a[2] * V[2][0]) / P, (a[0] * V[0][1] + a[1] * V[1][1] + a[2] * V[2][1]) / P];
+    const area = Math.abs((V[1][0] - V[0][0]) * (V[2][1] - V[0][1]) - (V[2][0] - V[0][0]) * (V[1][1] - V[0][1])) / 2, rin = 2 * area / P;
+    if (rho < 0.01) return V;
+    const k = (rin - rho) / rin, W = V.map(([x, y]) => [I[0] + (x - I[0]) * k, I[1] + (y - I[1]) * k]);
+    const out = [];
+    for (let i = 0; i < 3; i++) {                               // an arc at each corner, between its two edges' outward normals
+      const p = W[(i + 2) % 3], q = W[i], r = W[(i + 1) % 3];
+      // outward normal of edge p→q (clockwise outline): rotate the edge direction by -90°
+      const a1 = Math.atan2(q[1] - p[1], q[0] - p[0]) - Math.PI / 2, a2 = Math.atan2(r[1] - q[1], r[0] - q[0]) - Math.PI / 2;
+      let d = a2 - a1; while (d < 0) d += 2 * Math.PI; while (d > 2 * Math.PI) d -= 2 * Math.PI;
+      for (let j = 0; j <= 12; j++) { const t = a1 + d * j / 12; out.push([q[0] + rho * Math.cos(t), q[1] + rho * Math.sin(t)]); }
+    }
+    return out;
+  }
+  function rayHit(cx, cy, dx, dy, V) {                         // distance from (cx, cy) along (dx, dy) to a convex polygon's edge
+    let best = Infinity;
+    for (let i = 0; i < V.length; i++) {
+      const [x1, y1] = V[i], [x2, y2] = V[(i + 1) % V.length], ex = x2 - x1, ey = y2 - y1, den = dx * ey - dy * ex;
+      if (Math.abs(den) < 1e-9) continue;
+      const t = ((x1 - cx) * ey - (y1 - cy) * ex) / den, u = ((x1 - cx) * dy - (y1 - cy) * dx) / den;
+      if (t > 0 && u >= -1e-9 && u <= 1 + 1e-9) best = Math.min(best, t);
+    }
+    return best;
+  }
+  const smooth = x => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
+  // Morph styles (Darius chose 1, on the beat; ?morph=2 or 3 still show the others):
+  //   1 round off: the corners round, then the outline eases out to the circle
+  //   2 spin: the same, plus one extra clockwise turn that speeds up and settles over 0.6 s (a whole turn leaves the
+  //     triangle where the rhyme has it)
+  //   3 collapse and bloom: the corners pull in and the shape shrinks to a small round blob (a quarter of its size),
+  //     then blooms out to the full circle; going back, the circle shrinks to the blob and the triangle blooms out
+  const MORPH = +((location.search.match(/[?&]morph=([123])/) || [])[1] || 1);
+  const SPIN = MORPH === 2 ? 360 : 0;
+  let morph = 0, morphAnim = null, spin = 0;                   // morph: 0 triangle … 1 circle; spin: extra degrees
+  let pill = 0, pillAnim = null;                              // pill: 0 the circle … 1 the Bass pill (134 × 402)
+  let bandA = 0, bandAnim = null;                             // bandA: 0 … 1 the Sequencer band (402 wide, y 1 … 544)
+  let sqA = 0, sqAnim = null;                                 // sqA: 0 … 1 the Filter square (402 × 402, square corners)
+  let tapeA = 0, tapeAnim = null;                             // tapeA: 0 … 1 the Tape stop band (402 wide, its middle open)
+  // Tape stop (Figma "iPhone 17 - 25" 10:762 at rest, "- 31" 42:3306 held): two 134 px blocks against the screen edges,
+  // 322 tall, squashing to 134 while the tape winds down (v1's flatAt: in as the tape slows, out on the one)
+  function tapeFlat(t) {
+    if (!tape) return 0;
+    const f = x => { const u = Math.min(1, Math.max(0, (x - tape.ts) / TAPE_D)); return 1 - (1 - u) * (1 - u); };
+    if (tape.tR == null || t < tape.tR) return f(t);
+    return Math.max(0, TR(t - tape.tR, f(tape.tR), 0, 20, 0.9));
+  }
+  const tapeH = t => 322 - 188 * tapeFlat(t);
+  // how far a ray from the centre runs to the pill's edge: a capsule of radius 67 round the segment y −134 … +134,
+  // each end pushed out by the bass knob's overdrag (ext: [top, bottom] in px)
+  function capsuleR(dx, dy, ext) {
+    const y0 = -134 - ext[0], y1 = 134 + ext[1];
+    if (Math.abs(dx) > 1e-6) { const t = 67 / Math.abs(dx), y = dy * t; if (y >= y0 && y <= y1) return t; }
+    const cy = dy < 0 ? y0 : y1, b = dy * cy, disc = b * b - cy * cy + 67 * 67;
+    return b + Math.sqrt(Math.max(0, disc));
+  }
+  function shapeRender(t) {
+    if (morphAnim && t >= morphAnim.t0) {
+      const u = t - morphAnim.t0;
+      morph = morphAnim.from + (morphAnim.to - morphAnim.from) * S(u, 13);
+      spin = SPIN * smooth(u / 0.6);
+      if (u > 1) { morph = morphAnim.to; morphAnim = null; spin = 0; }
+    }
+    if (pillAnim && t >= pillAnim.t0) {
+      const u = t - pillAnim.t0;
+      pill = pillAnim.from + (pillAnim.to - pillAnim.from) * S(u, 14);
+      if (u > 1) { pill = pillAnim.to; pillAnim = null; }
+    }
+    if (bandAnim && t >= bandAnim.t0) {
+      const u = t - bandAnim.t0;
+      bandA = bandAnim.from + (bandAnim.to - bandAnim.from) * S(u, 14);
+      if (u > 1) { bandA = bandAnim.to; bandAnim = null; }
+    }
+    if (sqAnim && t >= sqAnim.t0) {
+      const u = t - sqAnim.t0;
+      sqA = sqAnim.from + (sqAnim.to - sqAnim.from) * S(u, 14);
+      if (u > 1) { sqA = sqAnim.to; sqAnim = null; }
+    }
+    if (tapeAnim && t >= tapeAnim.t0) {
+      const u = t - tapeAnim.t0;
+      tapeA = tapeAnim.from + (tapeAnim.to - tapeAnim.from) * S(u, 14);
+      if (u > 1) { tapeA = tapeAnim.to; tapeAnim = null; }
+    }
+    const ext = bassExt(t), th = tapeH(t);
+    const bandSw = 0;                                         // the band keeps still (Darius: no breathing)
+    const V = triVerts(spin);
+    const collapse = MORPH === 3;
+    const rho = 108 * smooth(morph / (collapse ? 0.45 : 0.6)); // corners round first (up to near the 116 px inradius) …
+    const w = collapse ? smooth((morph - 0.3) / 0.4) : smooth((morph - 0.25) / 0.75);   // … then the outline eases to the circle
+    const k = collapse ? 1 - 0.75 * Math.pow(Math.sin(Math.PI * Math.min(1, Math.max(0, morph))), 1.5) : 1;   // 3: shrink, bloom
+    const O = roundedOutline(V, rho), cx = 201 + triDx * (1 - w), cy = 201;
+    const angs = [];
+    for (let i = 0; i < RAYS; i++) angs.push(i * 2 * Math.PI / RAYS);
+    if (rho < 0.01) for (const [vx, vy] of V) angs.push(mod(Math.atan2(vx - cx, -(vy - cy)), 2 * Math.PI));   // sharp corners stay sharp
+    if (sqA > 0.001) for (const c of [1, 3, 5, 7]) angs.push(c * Math.PI / 4);   // its corners stay sharp
+    if (bandA > 0.001) for (const [x, y] of [[201, -200 - bandSw], [201, 313 + bandSw], [-201, 313 + bandSw], [-201, -200 - bandSw]]) angs.push(mod(Math.atan2(x, -y), 2 * Math.PI));
+    if (tapeA > 0.001) { const hh = tapeH(t) / 2; for (const [sx, sy] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) angs.push(mod(Math.atan2(sx * 201, -sy * hh), 2 * Math.PI)); }
+    angs.sort((a, b) => a - b);
+    let d = '';
+    for (const a of angs) {
+      const dx = Math.sin(a), dy = -Math.cos(a), r0 = rayHit(cx, cy, dx, dy, O), r = isFinite(r0) ? r0 : 161;
+      let rr = (r + (161 - r) * w) * k;
+      if (pill > 0.001) rr += (capsuleR(dx, dy, ext) - rr) * pill;   // the circle stretches to the pill
+      if (sqA > 0.001) rr += (201 / Math.max(Math.abs(dx), Math.abs(dy)) - rr) * sqA;   // … or the filter square
+      if (bandA > 0.001) rr += (Math.min(201 / Math.max(1e-6, Math.abs(dx)), (dy < 0 ? 200 + bandSw : 313 + bandSw) / Math.max(1e-6, Math.abs(dy))) - rr) * bandA;   // … or the band (y 1 … 514)
+      if (tapeA > 0.001) rr += (Math.min(201 / Math.max(1e-6, Math.abs(dx)), th / 2 / Math.max(1e-6, Math.abs(dy))) - rr) * tapeA;   // … or the band
+      d += (d ? 'L' : 'M') + (cx + dx * rr).toFixed(2) + ' ' + (cy + dy * rr).toFixed(2);
+    }
+    // the filter square, once it has arrived, is drawn as its bar graph instead
+    shapePath.setAttribute('d', sqA > 0.9 && pill < 0.05 && tapeA < 0.05 && bandA < 0.05 ? skylinePath(skyline(t)) : d + 'Z');
+    // on the pad the blur is the kick: every kick (the loop's, or a tap on K) blurs the edge, and it settles back to sharp;
+    // no kick, no blur
+    // the triangle blurs on every beat the same way, 30% harder (BEAT_BLUR px, gone in about half a second)
+    // (not on the tap that starts it: beat 1 lands on the tap, and the tap itself never blurs)
+    const bt = (beats(t) % 1) / seg.bps, beatPx = playing && beats(t) >= 1 ? BEAT_BLUR * Math.exp(-8 * bt) : 0;
+    // on the bass pill the kick doesn't blur it: a held note does, more the further up or down it is
+    // on the tape the blur is the stop itself: sharp at rest, Figma's 32 once squashed (its layer blur reads at about
+    // twice a CSS blur, so 16 px here), clearing as it opens again
+    // the bass pill: its glitch only while it is touched (held or dragged); untouched it is still and sharp
+    const pillPx = growlBlur(t);
+    const blurPx = morph * kickBlur(t) * (1 - pill) * (1 - tapeA) * (1 - sqA) * (1 - bandA) + (1 - morph) * beatPx + pill * pillPx + tapeA * 16 * tapeFlat(t);
+    if (pill > 0.5) bassFx(t, blurPx);                         // the bass bar has its own, livelier filter
+    else if (sqA > 0.5) filtFx(t);                             // and the filter square another
+    else shapePath.ownerSVGElement.style.filter = blurPx > 0.05 ? `blur(${blurPx.toFixed(2)}px)` : 'none';
+    // the rhythm moves the shape and everything on it (v1's geometry): see groove()
+    const gv = still ? { sx: 1, sy: 1, dy: 0 } : groove(t), gt = `translateY(${gv.dy.toFixed(2)}px) scale(${gv.sx.toFixed(4)}, ${gv.sy.toFixed(4)})`;
+    shapePath.style.transformOrigin = `${cx.toFixed(1)}px ${cy}px`;
+    shapePath.style.transform = gt;
+    // the tape's gap opens down the middle as the band arrives, splitting it into Figma's two blocks
+    const gw = 134 * smooth((tapeA - 0.4) / 0.6);
+    gapEl.setAttribute('x', (201 - gw / 2).toFixed(2)); gapEl.setAttribute('width', gw.toFixed(2));
+    gapEl.setAttribute('y', (201 - th / 2 - 2).toFixed(2)); gapEl.setAttribute('height', (th + 4).toFixed(2));
+    gapEl.style.transformOrigin = shapePath.style.transformOrigin; gapEl.style.transform = gt;
+    // each screen's contents ride on the shape: the bubbles leave as it rounds, the pad arrives as it settles
+    bubLayer.style.opacity = Math.max(0, 1 - morph * 2.5).toFixed(3);
+    pad.style.opacity = (Math.max(0, (morph - 0.6) / 0.4) * Math.max(0, 1 - pill * 2.5) * Math.max(0, 1 - tapeA * 2.5) * Math.max(0, 1 - sqA * 2.5) * Math.max(0, 1 - bandA * 2.5)).toFixed(3);
+    bassEl.style.opacity = Math.max(0, (pill - 0.6) / 0.4).toFixed(3);
+    filtEl.style.opacity = Math.max(0, (sqA - 0.6) / 0.4).toFixed(3);
+    seqEl.style.opacity = Math.max(0, (bandA - 0.6) / 0.4).toFixed(3);
+    topSplit();
+    if (bandA > 0.01) { seqRender(t); toneFrame(t); }
+    if (pill > 0.01) bassRender(t);
+    if (sqA > 0.01) filtRender(t);
+    const ks = k < 0.999 ? `scale(${k.toFixed(4)})` : '';          // contents shrink and bloom with the shape (morph 3)
+    bubLayer.style.transformOrigin = `${cx.toFixed(1)}px ${cy}px`;
+    bubLayer.style.transform = gt + ' ' + ks; pad.style.transform = gt + ' ' + ks; bassEl.style.transform = gt;
+  }
+
+  const BLUR = 12, BEAT_BLUR = BLUR * 1.3, KICK_BLUR = BLUR * 1.3;   // peak blur: a beat on the triangle, a kick on the pad (both +30%)
+  function sinceHit(lane, t) {                                 // seconds since the lane last played (the loop, or a tap)
+    let tau = t - flashAt[lane];
+    if (playing) {
+      const L = loops[shown][lane], len = L.length, n = Math.floor(beats(t) * 4);
+      for (let back = 0; back < len; back++) if (L[mod(n - back, len)]) {
+        tau = Math.min(tau, t - (seg.t0 + ((n - back) / 4 - seg.b0) / seg.bps)); break;
+      }
+    }
+    return tau >= 0 ? tau : Infinity;
+  }
+  // v1's rhythm motion. Step 1 (v1's Pulse): before the first tap a slow breath, one per four beats; then a nudge on
+  // every beat, bigger on the bar's first. Step 2 (v1's Pad): each drum squashes the pad, the loop only a little (0.3),
+  // your own hits fully: the kick presses it flat and down, the snare flat and up, the hat shrinks it a touch.
+  function groove(t) {
+    let e;
+    if (!playing) e = 0.35 - 0.35 * Math.cos(t * Math.PI * seg.bps * 0.5);
+    else { e = 0; const b = beats(t), n = Math.floor(b); for (let k = 0; k < 3; k++) e += IMP((b - (n - k)) / seg.bps, 11) * (mod(n - k, 4) === 0 ? 1 : 0.6); }
+    let sx = 1 + 0.04 * e * (1 - morph), sy = 1 + 0.08 * e * (1 - morph), dy = 0;
+    const hitAt = (lane, e2) => {
+      if (lane === 1) { sy -= 0.085 * e2; sx += 0.055 * e2; dy += 4 * e2; }
+      else if (lane === 2) { sy -= 0.06 * e2; sx += 0.045 * e2; dy -= 3 * e2; }
+      else { sx -= 0.02 * e2; sy -= 0.02 * e2; }
+    };
+    for (let lane = 1; lane <= 3; lane++) {
+      const live = t - flashAt[lane]; if (live >= 0 && live < 0.7) hitAt(lane, IMP(live, 26) * morph * (1 - pill) * (1 - tapeA) * (1 - sqA) * (1 - bandA));
+      if (!playing) continue;
+      const L = loops[shown][lane], len = L.length, n = Math.floor(beats(t) * 4);
+      for (let back = 0; back < 12; back++) {
+        const tk = seg.t0 + ((n - back) / 4 - seg.b0) / seg.bps; if (t - tk > 0.7) break;
+        if (L[mod(n - back, len)]) hitAt(lane, IMP(t - tk, 26) * 0.3 * morph * (1 - pill) * (1 - tapeA) * (1 - sqA) * (1 - bandA));
+      }
+    }
+    return { sx, sy, dy };
+  }
+  const kickBlur = t => KICK_BLUR * Math.exp(-6.5 * sinceHit(1, t));   // KICK_BLUR px on a kick, lingering a touch longer (~0.6 s)
+  // the speaker's cones push out on their hits and spring back
+  const tw = document.querySelector('.kit .tw'), wf = document.querySelector('.kit .wf');
+  // the melody line's latest note: { tau, step, n } (the beat clock's 16ths, as sinceHit)
+  function lastMel(t) {
+    if (!playing) return null;
+    const m = snd().m, n = Math.floor(beats(t) * 4);
+    for (let back = 0; back < 16; back++) if (m[mod(n - back, m.length)]) return { tau: t - (seg.t0 + ((n - back) / 4 - seg.b0) / seg.bps), step: mod(n - back, m.length), n: n - back };
+    return null;
+  }
+  const gt = document.querySelector('.kit .gt'), gds = [...document.querySelectorAll('.kit .gd')];
+  function guitarRender(t) {
+    const L = lastMel(t), e = L && L.tau >= 0 ? Math.exp(-11 * L.tau) : 0, sy = snd();
+    // the strum: it tips 4° round its body and springs back (5.75° on the bar's first beat, more for a chord), held a
+    // touch longer than the details' pop
+    const sw = L && L.tau >= 0 ? Math.exp(-9.5 * L.tau) : 0;
+    const deg = (mod(L ? L.n : 1, 16) === 0 ? 5.75 : 4) * (sy.chord ? 1.3 : 1) * sw;
+    gt.style.transform = deg > 0.01 ? `rotate(${deg.toFixed(2)}deg)` : '';
+    const pick = L ? (sy.chord ? -1 : mod(MEL[L.step % 16] + (sy.growl && sy.growl[L.step] ? sy.growl[L.step][0] : 0), 3)) : -2;
+    gds.forEach((d, i) => { d.style.transform = `scale(${(1 + 0.9 * e * (pick === -1 || pick === i ? 1 : 0)).toFixed(3)})`; });
+  }
+  function speakerRender(t) {
+    const kick = Math.exp(-14 * sinceHit(1, t)), top = Math.exp(-18 * Math.min(sinceHit(2, t), sinceHit(3, t)));
+    wf.style.transform = `scale(${(1 + 0.32 * kick).toFixed(3)})`;
+    tw.style.transform = `scale(${(1 + 0.28 * top).toFixed(3)})`;
+  }
+
+  /* ---------- the knob ---------- */
+  const knob = document.querySelector('.knob');
+  const KLANES = [1, 3, 2];                                    // on the pad it picks, in order: kick, hat, snare
+  function knobJob(m, t) {                                     // where the knob works on screen m, in figure coordinates
+    const n = Math.floor(beats(t) * (m === 0 ? 1 : 4));
+    if (m === 0) return firstPlayT ? { x: X[mod(n, 4)], y: 201, d: 24 } : { x: 201, y: 201, d: 24 };   // before the first tap: the centre (Darius)
+    if (m === 3) { padKnob = null; knobMid = false; return { x: 201, y: noteY(bassShown(t)), d: 24 }; }   // v1: it is the bass
+    if (m === 5) { padKnob = null; knobMid = false; return { x: 201, y: 201, d: 24 }; }   // Figma: centred in the gap
+    if (m === 2) { padKnob = null; knobMid = false; return { x: 201, y: seqRowY(mod(Math.floor(beats(t) * 4), 32)), d: 24 }; }   // the playhead
+    if (m === 4) { padKnob = null; knobMid = false; const f = filtPos(t); return { x: FX0 + f.x * FSPAN, y: FX0 + f.y * FSPAN, d: 24 }; }   // the puck
+    const loop = loops[shown], len = loop[1].length, st = mod(n, STEPS);
+    const lane = KLANES.find(l => loop[l][st % len]);
+    padKnob = lane ? { st, lane } : null;
+    knobMid = !lane;
+    if (!lane) return { x: 201, y: 201, d: 30 };              // an empty step: the middle, 30 px, H small inside it
+    const a = st * 2 * Math.PI / STEPS, r = RING[lane].r;
+    return { x: 201 + Math.sin(a) * r, y: 201 - Math.cos(a) * r, d: 24 };
+  }
+  let kn = null, knTrip = null, knFrom = 0;                    // kn: spring state; knTrip: { t0, from, to } a dive to the mode dots
+  function knobRender(t) {
+    const m = tapeA > 0.5 ? 5 : sqA > 0.5 ? 4 : pill > 0.5 ? 3 : bandA > 0.5 ? 2 : morph > 0.5 ? 1 : 0, job = knobJob(m, t);
+    if (!kn) kn = { x: job.x, y: job.y, d: job.d, fx: job.x, fy: job.y, fd: job.d, tx: job.x, ty: job.y, td: job.d, t0: t };
+    if (Math.hypot(job.x - kn.tx, job.y - kn.ty) > 0.5 || job.d !== kn.td) { kn.fx = kn.x; kn.fy = kn.y; kn.fd = kn.d; kn.tx = job.x; kn.ty = job.y; kn.td = job.d; kn.t0 = t; }
+    const k = m === 3 || m === 4 ? 1 : S(t - kn.t0, morph > 0.5 ? 40 : 26);   // on the pad it hops quickly; on the bass it is the note itself
+    kn.x = kn.fx + (kn.tx - kn.fx) * k; kn.y = kn.fy + (kn.ty - kn.fy) * k; kn.d = kn.fd + (kn.td - kn.fd) * k;
+    // figure coordinates → the stage
+    const fr = fig.getBoundingClientRect(), sr = stage.getBoundingClientRect(), sc = fr.width / 402;
+    let x = fr.left - sr.left + kn.x * sc, y = fr.top - sr.top + kn.y * sc, d = kn.d * sc;
+    // A screen change, as v1: the knob drops to the row of mode dots and becomes the marker there, stretching like
+    // liquid from the old screen's dot to the new one's (the leading end on the stiffer spring), then rises back to
+    // its new job. While it is down it covers every dot it spans, and those dots step aside, so nothing overlaps.
+    let v = 0, w = d, h = d, span = null;
+    if (knTrip) {
+      const u = t - knTrip.t0;
+      v = Math.max(0, Math.min(1, S(u, 22) - S(u - 0.42, 16)));
+      if (u > 1.4) knTrip = null;
+      else {
+        const cx = i => { const r = dotEls[i].getBoundingClientRect(); return r.left - sr.left + r.width / 2; };
+        const x0 = cx(knTrip.from), dd = cx(knTrip.to) - x0, right = dd > 0;
+        const xl = x0 + dd * S(u, right ? 13 : 30), xr = x0 + dd * S(u, right ? 30 : 13);
+        const r0 = dotEls[knTrip.to].getBoundingClientRect(), rowY = r0.top - sr.top + r0.height / 2;
+        x += ((xl + xr) / 2 - x) * v; y += (rowY - y) * v;
+        w = d + (Math.abs(xr - xl) + 8 - d) * v; h = d + (8 - d) * v;
+      }
+    }
+    dotEls.forEach(el => {                                     // a dot the marker touches gives way to it (no white-on-white)
+      const r = el.getBoundingClientRect(), cx = r.left - sr.left + r.width / 2, cy = r.top - sr.top + r.height / 2;
+      const touch = v > 0.01 && Math.abs(cx - x) < w / 2 + r.width / 2 + 2 && Math.abs(cy - y) < h / 2 + r.height / 2 + 2;
+      el.style.opacity = touch ? 0 : 1;
+    });
+    knob.style.width = w.toFixed(2) + 'px'; knob.style.height = h.toFixed(2) + 'px';
+    knob.style.transform = `translate(${(x - w / 2).toFixed(2)}px, ${(y - h / 2).toFixed(2)}px)`;
+    // on the rim it is solid black, even over a tapped ring; in the middle it keeps the blend, so H shows white inside it
+    const onPad = morph > 0.9 && pill < 0.1 && tapeA < 0.1 && sqA < 0.1 && bandA < 0.1 && v < 0.05 && !knobMid;
+    knob.classList.toggle('solid', onPad);
+  }
+
+  /* ---------- the bass (step 4): v1's, held notes on two voices ---------- */
+  const BASS_TONES = ['ACID', 'SUB', 'GROWL'];
+  const bassTone = STYLES.map(st => SOUND[st.name].tones.bass);     // each style keeps its own bass sound, as in v1
+  const PCN = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+  const noteY = v => 335 - v * 26.8;                         // note 0 at the bottom end's centre, 10 at the top's
+  const bassRaw = y => (335 - y) / 26.8;
+  const midiOf = i => 33 + rootSemi(key.root) + SCALES[key.scale][mod(i, 5)] + 12 * Math.floor(i / 5);
+  const noteLabel = i => {
+    const m = midiOf(i), n = PCN[mod(m, 12)];
+    return `<span style="--w: 150">${n[0]}</span>` + (n[1] ? `<span class="acc" style="--w: 125">${n[1]}</span>` : '') + `<span style="--w: 125">${Math.floor(m / 12) - 1}</span>`;
+  };
+  // free response from offset A with velocity V, settling to 0 (v1's TR)
+  function TR(tau, A, V, w = 22, z = 0.86) {
+    if (tau < 0) return 0;
+    const wd = w * Math.sqrt(1 - z * z), e = Math.exp(-z * w * tau);
+    return e * (A * Math.cos(wd * tau) + ((V + z * w * A) / wd) * Math.sin(wd * tau));
+  }
+  // a drag: direct while held, a spring back to the middle once let go (v1's dragVal / releaseSession, homing)
+  const bassTr = [{ rest: 5, w: 22, z: 0.86, sessions: [] }, { rest: 5, w: 30, z: 0.9, sessions: [] }];
+  const live = tr => { const s = tr.sessions[tr.sessions.length - 1]; return s && s.t1 === Infinity ? s : null; };
+  function dragVal(tr, t) {
+    const ss = tr.sessions;
+    for (let i = ss.length - 1; i >= 0; i--) {
+      const s = ss[i]; if (s.t0 > t) continue;
+      if (t < s.t1) { for (let j = s.s.length - 1; j >= 0; j--) if (s.s[j][0] <= t) return s.s[j][1]; return s.s[0][1]; }
+      return s.target + TR(t - s.t1, s.rel - s.target, s.vel, tr.w, tr.z);
+    }
+    return tr.rest;
+  }
+  function release(s, t) {
+    s.t1 = t;
+    const last = s.s[s.s.length - 1]; let first = last;
+    for (let j = s.s.length - 1; j >= 0; j--) { if (last[0] - s.s[j][0] > 0.06) break; first = s.s[j]; }
+    const dt = last[0] - first[0];
+    s.rel = last[1]; s.target = 5;                            // home to the middle note, like a pitch wheel (Darius; v1 stayed put)
+    s.vel = dt > 0.008 ? Math.max(-60, Math.min(60, (last[1] - first[1]) / dt)) : 0;
+  }
+  const rub = d => 1.2 * (1 - Math.exp(-d / 2));             // overdrag, in notes
+  const bassShape = raw => raw > 10 ? 10 + rub(raw - 10) : raw < 0 ? -rub(-raw) : raw;
+  const bassShown = t => dragVal(bassTr[0], t);
+  // The pill blurs while a bass note is held, every sound, and the blur is the bass's own sound made visible:
+  //  · how far the knob is from the middle, up or down, sets the size (a little even on the middle note; 8 px at
+  //    either end, which is how Figma's 16 px layer blur reads in a browser)
+  //  · the synth meters the bass voices alone (bassMeter): their loudness and grit, against their own recent
+  //    average, drive it, so the acid filter's snap, the growl's and Dubstep's wobble and the upright's pluck all
+  //    show as the blur glitching with the sound
+  // The bass bar's look (an SVG filter, #bassfx): the outline warps through a noise field whose pattern jumps on every
+  // 32nd (so the glitch stutters in time), by as much as the bass flutters and grits (bassMeter); the blur is taller
+  // than wide, and a fast slide up or down smears it more, like motion blur. Only while touched: untouched the
+  // bar is still and sharp.
+  const fxTurb = document.querySelector('#bassfx feTurbulence'), fxDisp = document.querySelector('#bassfx feDisplacementMap');
+  const fxBlur = document.querySelector('#bassfx feGaussianBlur');
+  let fxVel = 0, fxLastV = null, fxLastT = 0, fxSeed = -1;
+  function bassFx(t, blurPx) {
+    const v = bassShown(t), dt = Math.max(1e-3, t - fxLastT);
+    if (fxLastV !== null) fxVel += (Math.abs(v - fxLastV) / dt - fxVel) * 0.25;   // notes per second, smoothed
+    fxLastV = v; fxLastT = t;
+    const s = bassTr[0].sessions[bassTr[0].sessions.length - 1];
+    const held = s && t >= s.t0 ? S(t - s.t0, 20) * (s.t1 === Infinity ? 1 : 1 - S(t - s.t1, 20)) : 0;
+    const m = bassMeter(), dist = 0.25 + 0.75 * Math.min(1.25, Math.abs(v - 5) / 5);
+    const warp = held * dist * (6 + 26 * Math.max(0, m.flick - 0.6));
+    const by = Math.min(10, blurPx * 0.9 + held * Math.min(8, fxVel * 0.6)), bx = by * 0.35;
+    const n32 = Math.floor((playing ? beats(t) : t * 2) * 8);
+    if (n32 !== fxSeed) { fxSeed = n32; fxTurb.setAttribute('seed', String(mod(n32, 97) + 1)); }
+    fxTurb.setAttribute('baseFrequency', `${(0.01 + 0.012 * m.lv).toFixed(4)} ${(0.05 + 0.04 * dist).toFixed(4)}`);
+    fxDisp.setAttribute('scale', warp.toFixed(2));
+    fxBlur.setAttribute('stdDeviation', `${bx.toFixed(2)} ${by.toFixed(2)}`);
+    shapePath.ownerSVGElement.style.filter = warp > 0.05 || by > 0.05 ? 'url(#bassfx)' : 'none';
+  }
+  function growlBlur(t) {
+    const s = bassTr[0].sessions[bassTr[0].sessions.length - 1]; if (!s || t < s.t0) return 0;
+    const held = S(t - s.t0, 20) * (s.t1 === Infinity ? 1 : 1 - S(t - s.t1, 20));
+    if (held < 0.001) return 0;
+    const dist = 0.25 + 0.75 * Math.min(1.25, Math.abs(bassShown(t) - 5) / 5), m = bassMeter();
+    return Math.min(10, held * 8 * dist * (0.4 + 0.6 * m.lv) * m.flick);   // never past 10 px
+  }
+  const bassExt = t => { const v = bassShown(t); return [v > 10 ? (v - 10) * 26.8 : 0, v < 0 ? -v * 26.8 : 0]; };
+  const bassNote = [-1, -1];
+  const bassSend = evs => { if (AU.ready && AU.anchored) post(snd().synth, evs); };
+  function bassDown(raw, voice, t) {
+    const tr = bassTr[voice]; if (live(tr)) bassUp(voice, t);
+    const v = voice ? Math.max(0, Math.min(10, raw)) : bassShape(raw);
+    tr.sessions.push({ t0: t, t1: Infinity, s: [[t, v]] });
+    if (tr.sessions.length > 8) tr.sessions.shift();
+    const n = Math.round(Math.max(0, Math.min(10, v))); bassNote[voice] = n;
+    bassSend([[EV.BON, 0, noteHz(n), 0.9, voice]]);
+  }
+  function bassMove(raw, voice, t) {
+    const s = live(bassTr[voice]); if (!s) return;
+    const v = voice ? Math.max(0, Math.min(10, raw)) : bassShape(raw);
+    s.s.push([t, v]); if (s.s.length > 64) s.s.splice(0, s.s.length - 64);
+    const n = Math.round(Math.max(0, Math.min(10, v)));
+    if (n !== bassNote[voice]) { bassNote[voice] = n; bassSend([[EV.BFREQ, 0, noteHz(n), 0, voice]]); }
+  }
+  function bassUp(voice, t) {
+    const s = live(bassTr[voice]); if (!s) return;
+    release(s, t); bassSend([[EV.BOFF, 0, 0, 0, voice]]);
+  }
+  function bassAllUp(t) { bassUp(0, t); bassUp(1, t); bPtr.clear(); }
+  function cycleBassTone() {
+    if (kitNow()) { tick(500, 0.4); return; }                  // one acoustic bass: the upright
+    const v = bassTone[shown] = (bassTone[shown] + 1) % BASS_TONES.length;
+    bassSend([[EV.BTONE, 0, v, 0, 0]]);
+    if (!live(bassTr[0])) { const t = now(); bassSend([[EV.BON, 0, noteHz(0), 0.8, 0], [EV.BOFF, t + 0.18, 0, 0, 0]]); }
+  }
+  const bassEl = document.querySelector('.bass'), toneEl = bassEl.querySelector('.tone'), noteEl = bassEl.querySelector('.note');
+  const note2El = bassEl.querySelector('.note2'), dot2 = bassEl.querySelector('.dot2');
+  for (let n = 0; n <= 10; n++) { const i = document.createElement('i'); i.className = 'tick'; i.style.top = noteY(n) + 'px'; i.style.width = (n % 5 === 0 ? 12 : 7) + 'px'; bassEl.prepend(i); }
+  toneEl.style.top = (noteY(10) - 34).toFixed(1) + 'px';
+  function bassRender(t) {
+    const ext = bassExt(t), v = bassShown(t);
+    toneEl.textContent = kitNow() ? 'UPRIGHT' : BASS_TONES[bassTone[shown]];
+    toneEl.style.top = (noteY(10) - 34 - ext[0]).toFixed(1) + 'px';
+    const lbl = noteLabel(Math.round(Math.max(0, Math.min(10, v))));
+    if (noteEl.innerHTML !== lbl) noteEl.innerHTML = lbl;
+    noteEl.style.top = noteY(v).toFixed(1) + 'px';
+    // the second finger: a 16 px dot on the line, its note on the left; it shrinks away when let go
+    const s2 = bassTr[1].sessions[bassTr[1].sessions.length - 1];
+    const r = s2 && t >= s2.t0 ? 1 - S(t - s2.t1, 26) : 0, v2 = dragVal(bassTr[1], t);
+    dot2.style.transform = `translateY(${noteY(v2).toFixed(1)}px) scale(${Math.max(0, r).toFixed(3)})`; dot2.style.top = '0';
+    note2El.style.top = noteY(v2).toFixed(1) + 'px';
+    const l2 = s2 && s2.t1 === Infinity ? noteLabel(Math.round(v2)) : '';
+    if (note2El.innerHTML !== l2) note2El.innerHTML = l2;
+  }
+  // touches: the first finger is voice 1, a second finger voice 2 (v1); the top of the pill picks the sound
+  const bPtr = new Map();
+  const figY = e => { const r = fig.getBoundingClientRect(); return (e.clientY - r.top) / (r.width / 402); };
+  bassEl.addEventListener('pointerdown', e => {
+    if (pill < 0.9) return;
+    const y = figY(e), t = now();
+    if (y < noteY(10) - 20 - bassExt(t)[0]) { cycleBassTone(); return; }
+    const voice = !live(bassTr[0]) ? 0 : !live(bassTr[1]) ? 1 : -1;
+    if (voice < 0) return;
+    bassEl.setPointerCapture(e.pointerId); bPtr.set(e.pointerId, voice);
+    bassDown(bassRaw(y), voice, t);
+  });
+  bassEl.addEventListener('pointermove', e => { if (bPtr.has(e.pointerId)) bassMove(bassRaw(figY(e)), bPtr.get(e.pointerId), now()); });
+  for (const ev of ['pointerup', 'pointercancel']) bassEl.addEventListener(ev, e => { if (!bPtr.has(e.pointerId)) return; bassUp(bPtr.get(e.pointerId), now()); bPtr.delete(e.pointerId); });
+
+  /* ---------- the sequencer (step 3): v1's, all 32 steps in four lines ---------- */
+  const seqEl = document.querySelector('.seq');
+  // columns, left to right D S | H M (Darius): the drums' backbone, the knob's track, then hat and melody, low to high.
+  // Indexed by line: 0 M (melody), 1 D (the kick), 2 S, 3 H
+  const SEQ_X = [338, 64, 135, 267], SEQ_L = ['M', 'D', 'S', 'H'];
+  const SEQ_SPAN = 411;                                      // first row to last (Figma: 308 … 719, the band ends 30 px above the tempo)
+  const seqRowY = i => 72 + i * SEQ_SPAN / 31;
+  const seqDots = [[], [], [], []], seqHead = [], seqGhost = [[], [], [], []];
+  SEQ_X.forEach((x, lane) => {
+    const h = document.createElement('p'); h.className = 't'; h.textContent = SEQ_L[lane];
+    h.style.left = x + 'px'; seqEl.appendChild(h); seqHead.push(h);
+    for (let i = 0; i < 32; i++) {
+      const g = document.createElement('i'); g.style.opacity = '0'; seqEl.appendChild(g); seqGhost[lane].push(g);   // its echo
+      const d = document.createElement('i'); seqEl.appendChild(d); seqDots[lane].push(d);
+    }
+  });
+  // the knob's track: a 2 px marker on every beat (8: two bars of four), on the beat's row, and a ninth on the last row,
+  // level with the other columns' last dots, closing the track (the loop's end). All alike; a marker under the knob
+  // steps aside, so it never flips colour inside it (seqRender)
+  const seqMarks = [];
+  for (let beat = 0; beat <= 8; beat++) {
+    const y = seqRowY(Math.min(31, beat * 4)), el = document.createElement('i');   // the closing one sits on the last row
+    el.style.cssText = `left:200px;top:${(y - 1).toFixed(2)}px;width:2px;height:2px`; seqEl.appendChild(el); seqMarks.push({ el, y });
+  }
+  const seqOn = (lane, i) => lane === 0 ? snd().m[i % snd().m.length] : loops[shown][lane][i % loops[shown][lane].length];
+  // the top of step 3 splits as the band arrives: the style names glide into the left half (the icon stays centred,
+  // Figma), the sound strip slides
+  // in from the right and fades up; back again on the way out (driven by bandA, so it moves with the shape)
+  const swEl = document.querySelector('.switch'), pkEl = document.querySelector('.picker'), icEl = document.querySelector('.kit');
+  let lastSplit = -1;
+  function topSplit() {
+    const k = Math.max(0, Math.min(1, bandA));
+    if (Math.abs(k - lastSplit) < 1e-4) return;
+    lastSplit = k;
+    swEl.style.right = pkEl.style.right = (50 * k).toFixed(3) + '%';
+    tonesEl.style.opacity = Math.max(0, (k - 0.35) / 0.65).toFixed(3);
+    tonesEl.style.transform = `translateX(${((1 - k) * 60).toFixed(1)}px)`;
+    tpick.style.pointerEvents = k > 0.9 ? 'auto' : 'none';
+    try { lastPos = null; } catch (_) {}                     // the style strip re-centres in its new width
+    if (k > 0.01) toneLayout();
+  }
+  function seqRender(t) {
+    const q = beats(t) * 4, n = Math.floor(q), cur = mod(n, 32), tau = (q - n) / (4 * seg.bps);
+    const ky = kn ? kn.y : -99;                                 // the knob's own (sprung) height on the track
+    for (const m of seqMarks) m.el.style.opacity = Math.abs(m.y - ky) < 13 ? 0 : 1;
+    for (let lane = 0; lane < 4; lane++) {
+      seqHead[lane].classList.toggle('mute', muted[lane]);
+      // the lane shake: when a line plays, its whole column shivers sideways, the kick most, the hat least
+      const lt = muted[lane] ? Infinity : lane === 0 ? (() => { const L = lastMel(t); return L && L.tau >= 0 ? L.tau : Infinity; })() : sinceHit(lane, t);
+      const shake = playing && lt < 0.3 ? [1.6, 3, 2.2, 1.1][lane] * Math.exp(-14 * lt) * Math.sin(2 * Math.PI * 22 * lt) : 0;
+      const lx = SEQ_X[lane] + shake;
+      seqHead[lane].style.left = lx.toFixed(2) + 'px';
+      for (let i = 0; i < 32; i++) {
+        const on = seqOn(lane, i), el = seqDots[lane][i];
+        const mu = muted[lane], d = on ? 8 * (1 + (playing && !mu && i === cur ? 0.5 * IMP(tau, 22) : 0)) : 2;   // a muted line's specks stay 2 px too
+        el.className = on && mu ? 'o' : '';
+        // the comet: a dot the playhead has just played trails a tail back up the rows it came down, fading along its
+        // length and drawing back into the dot over a beat (muted lines don't play, so they leave none)
+        const since = playing ? mod(q - i, 32) : 99, tail = on && !mu && since < 4 ? 26 * Math.pow(1 - since / 4, 1.6) : 0;
+        // the echo: each played dot leaves a faint copy that drifts a few px down and fades over 6 steps
+        const ge = seqGhost[lane][i];
+        if (false && on && !mu && since < 6 && since > 0.15) {     // echoes off (Darius); kept for later
+          const gd = 8, k = 1 - since / 6;
+          ge.style.cssText = `left:${(lx - gd / 2).toFixed(2)}px;top:${(seqRowY(i) - gd / 2 + 2.6 * since).toFixed(2)}px;width:${gd}px;height:${gd}px;opacity:${(0.32 * k).toFixed(3)}`;
+        } else if (ge.style.opacity !== '0') ge.style.opacity = '0';
+        if (tail > 0.3) {
+          el.style.cssText = `left:${(lx - d / 2).toFixed(2)}px;top:${(seqRowY(i) - d / 2 - tail).toFixed(2)}px;width:${d.toFixed(2)}px;height:${(d + tail).toFixed(2)}px;` +
+            `background:linear-gradient(to bottom, transparent, var(--paper) ${(100 * tail / (d + tail)).toFixed(0)}%)`;
+        } else el.style.cssText = `left:${(lx - d / 2).toFixed(2)}px;top:${(seqRowY(i) - d / 2).toFixed(2)}px;width:${d.toFixed(2)}px;height:${d.toFixed(2)}px`;
+      }
+    }
+  }
+  seqEl.addEventListener('pointerdown', e => {
+    if (bandA < 0.9) return;
+    const r = fig.getBoundingClientRect(), sc = r.width / 402, x = (e.clientX - r.left) / sc, y = (e.clientY - r.top) / sc;
+    const lane = SEQ_X.findIndex(lx => Math.abs(x - lx) < 26); if (lane < 0) return;
+    if (y < 56) { muted[lane] = !muted[lane]; tick(muted[lane] ? 420 : 640, 0.45); resync(); return; }   // a letter: mute / unmute
+    const i = Math.round((y - 72) / (SEQ_SPAN / 31)); if (i < 0 || i > 31) return;
+    const sy = snd(), arr = lane === 0 ? sy.m : loops[shown][lane], k = i % arr.length;
+    arr[k] = arr[k] ? 0 : 1;
+    if (arr[k] && AU.ready && AU.anchored) post(sy.synth, laneEvents(lane, k, sy, 0.4).map(ev => [ev[0], now(), ev[1], ev[2], 0]));
+    else tick(330, 0.6);
+    resync();
+  });
+  // the melody's sound, up top on the right (Figma: … PLUCK KEY …): v1's tones, tap for the next, swipe either way
+  const tonesEl = document.querySelector('.tones'), tpick = document.querySelector('.tpick');
+  const toneList = () => { const sy = snd(); return sy.growl ? ['GROWL'] : kitNow() ? ['GUITAR', 'MARIMBA', 'PIANO', 'VIBES'] : ['PLUCK', 'BELL', 'KEYS', 'GLASS']; };
+  const toneIdx = () => { const sy = snd(); return sy.growl ? 0 : kitNow() ? sy.tones.smel : sy.tones.mel; };
+  // the strip works as the style strip does (layoutStrip): drag, flick, trackpad, wheel, tap a neighbour, arrow keys
+  let toneWords = [], toneKey = '', tpos = 0, tanim = null, tdrag = null, tSnap = 0, tWheelT = 0;
+  function toneWordsFor() {                                  // (re)build the names when the list changes (kit, style)
+    const L = toneList(), key = L.join();
+    if (key === toneKey) return;
+    toneKey = key; tonesEl.innerHTML = '';
+    toneWords = L.map(name => { const p = document.createElement('p'); p.className = 't';
+      for (const ch of name) { const sp = document.createElement('span'); sp.textContent = ch; p.appendChild(sp); }
+      tonesEl.appendChild(p); return p; });
+    tpos = toneIdx(); tanim = null;
+  }
+  function setToneIdx(v) {                                   // the sound itself changes at once, as the strip heads there
+    const sy = snd(), L = toneList(); v = mod(v, L.length);
+    if (L.length < 2 || v === toneIdx()) return;
+    if (kitNow()) sy.tones.smel = v; else sy.tones.mel = v;
+    resync(); if (AU.ready && AU.anchored) post(sy.synth, laneEvents(0, 0, sy, 0.5).map(ev => [ev[0], now(), ev[1], ev[2], 0]));
+  }
+  function toneGo(target) { if (toneList().length < 2) { tick(500, 0.4); target = 0; } tanim = { from: tpos, to: target, t0: now() }; setToneIdx(Math.round(target)); }
+  function toneLayout() { toneWordsFor(); if (toneWords.length) layoutStrip(tonesEl, toneWords, tpos); }
+  function toneFrame(t) {                                    // called each frame while step 3 shows
+    toneWordsFor();
+    if (tanim) { tpos = tanim.from + (tanim.to - tanim.from) * S(t - tanim.t0, still ? 1e3 : 16); if (t - tanim.t0 > 0.8) { tpos = tanim.to; tanim = null; } }
+    layoutStrip(tonesEl, toneWords, tpos);
+  }
+  tpick.addEventListener('pointerdown', e => { tanim = null; tdrag = { id: e.pointerId, x0: e.clientX, p0: tpos, lx: e.clientX, lt: now(), v: 0, moved: 0 }; tpick.setPointerCapture(e.pointerId); });
+  tpick.addEventListener('pointermove', e => {
+    if (!tdrag || e.pointerId !== tdrag.id || toneList().length < 2) return;
+    const t = now(), dx = e.clientX - tdrag.x0;
+    tdrag.moved = Math.max(tdrag.moved, Math.abs(dx));
+    if (t > tdrag.lt) tdrag.v = tdrag.v * 0.6 + 0.4 * (e.clientX - tdrag.lx) / (t - tdrag.lt);
+    tdrag.lx = e.clientX; tdrag.lt = t;
+    tpos = tdrag.p0 - dx / STEP; setToneIdx(Math.round(tpos));
+  });
+  function tEndDrag(e) {
+    if (!tdrag || e.pointerId !== tdrag.id) return;
+    const d = tdrag; tdrag = null;
+    if (d.moved < 6) { const r = tpick.getBoundingClientRect(), x = e.clientX - r.left; toneGo(Math.round(tpos) + (x < r.width / 2 - 45 ? -1 : 1)); return; }
+    toneGo(Math.round(tpos - Math.max(-1.5, Math.min(1.5, d.v * 0.12 / STEP))));
+  }
+  tpick.addEventListener('pointerup', tEndDrag); tpick.addEventListener('pointercancel', tEndDrag);
+  tpick.addEventListener('wheel', e => {
+    e.preventDefault(); if (toneList().length < 2) return;
+    const t = now();
+    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) { tanim = null; tpos += e.deltaX / STEP / 2; setToneIdx(Math.round(tpos)); clearTimeout(tSnap); tSnap = setTimeout(() => toneGo(Math.round(tpos)), 140); }
+    else if (t - tWheelT > 0.22 && Math.abs(e.deltaY) > 2) { tWheelT = t; toneGo(Math.round(tanim ? tanim.to : tpos) + Math.sign(e.deltaY)); }
+  }, { passive: false });
+  tpick.addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); e.stopPropagation(); toneGo(Math.round(tanim ? tanim.to : tpos) + (e.key === 'ArrowRight' ? 1 : -1)); }
+    else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toneGo(Math.round(tpos) + 1); }
+  });
+
+  /* ---------- the filter (step 5): v1's, one low-/high-pass with resonance over the whole mix ----------
+     x: 0 … 0.5 low-pass closing to the left, 0.5 open, 0.5 … 1 high-pass closing to the right; y: 0 top, most
+     resonance … 1 bottom, none. The puck rides the dot grid (61 … 341 px), stays where let go; a double-tap glides
+     it back to the centre, open. */
+  const FX0 = 61, FSPAN = 280;
+  const filtEl = document.querySelector('.filt');
+  const filtDots = [];
+  [8, 6, 4, 2, 1].forEach((d, col) => { for (let row = 0; row < 5; row++) (() => {
+    const L = { '2,0': 'R', '0,2': 'L', '4,2': 'H', '2,4': 'X' }[col + ',' + row];
+    const x = FX0 + col * 70, y = FX0 + row * 70;
+    if (L) {
+      const p = document.createElement('p'); p.className = 't'; p.textContent = L;
+      p.style.left = x + 'px'; p.style.top = y + 'px'; filtEl.appendChild(p); filtDots.push({ el: p, x, y, d: 16 }); return;
+    }
+    const i = document.createElement('i'); i.style.width = i.style.height = d + 'px';
+    i.style.left = (x - d / 2) + 'px'; i.style.top = (y - d / 2) + 'px'; filtEl.appendChild(i);
+    filtDots.push({ el: i, x, y, d, col, row });
+  })(); });
+  // The dot field swells round the knob (Figma, see filtRender); where the knob overlaps a dot the two cut into each
+  // other (difference blending), which Darius likes. filtGain (the filter's response, column by column) shapes the skyline.
+  function filtGain(col, f) {
+    const off = f.x - 0.5, on = Math.min(1, Math.abs(off) / 0.12), res = (1 - f.y) * (1 - f.y) * on;
+    if (Math.abs(off) < 1e-3) return { g: 1, peak: 0 };
+    const cut = off < 0 ? (f.x / 0.5) * 4.6 - 0.3 : ((f.x - 0.5) / 0.5) * 4.6 - 0.3;   // the cutoff, in columns
+    const past = off < 0 ? col - cut : cut - col;                                      // how far beyond it
+    return { g: past > 0 ? Math.exp(-past * 1.6) : 1, peak: res * Math.exp(-past * past / 0.45) };
+  }
+  // The filter square's glitch, unlike the bass bar's: its top and bottom edges become a mirrored bar graph of the
+  // filtered sound (skyline), driven by the output meter after the filter (outMeter: resonance squelch and drive show
+  // here); low-pass adds a sideways smear (muffled reads soft), high-pass stays crisp. It lasts while the filter is in,
+  // touched or not, since the sound stays filtered; in the centre the square is clean.
+  const ffTurb = document.querySelector('#filtfx feTurbulence'), ffDisp = document.querySelector('#filtfx feDisplacementMap');
+  const ffBlur = document.querySelector('#filtfx feGaussianBlur');
+  let ffSeed = -1, ffTear = 0;
+  const colJump = (col, n) => { let x = Math.imul((n * 5 + col) ^ 0x9e3779b9, 0x85ebca6b); x ^= x >>> 13; x = Math.imul(x, 0xc2b2ae35); x ^= x >>> 16; return (x >>> 0) / 4294967296 - 0.5; };
+  // the square as a mirrored bar graph of the filtered sound: 24 bars across, standing up from the top edge and down
+  // from the bottom one, each as tall as the filter lets that band through (the dots' columns, finer), a spike at the
+  // resonance peak, pumped by the output's level and flutter, and re-dealt on every 16th
+  const SKY_N = 24;
+  function skyline(t) {
+    const f = filtPos(t), amt = Math.min(1, Math.abs(f.x - 0.5) / 0.5), on = Math.min(1, amt / 0.24);
+    const m = outMeter(), n16 = Math.floor((playing ? beats(t) : t * 2) * 4);
+    const amp = 26 * on * (0.35 + 0.65 * amt) * (0.45 + 0.55 * m.lv) * (0.6 + 0.4 * Math.min(1.6, m.flick)) * Math.min(1, (sqA - 0.9) / 0.1);
+    const h = [];
+    for (let i = 0; i < SKY_N; i++) {
+      const col = i / (SKY_N - 1) * 4, { g, peak } = filtGain(col, f);
+      h.push(Math.max(0, amp * (0.25 + 0.75 * g + 1.6 * peak) * (0.55 + 0.9 * (colJump(i, n16) + 0.5))));
+    }
+    return h;
+  }
+  function skylinePath(h, gt) {
+    const w = 402 / SKY_N;
+    let d = 'M0 ' + (1 - h[0]).toFixed(2);
+    for (let i = 0; i < SKY_N; i++) { const y = (1 - h[i]).toFixed(2); d += `L${(i * w).toFixed(2)} ${y}L${((i + 1) * w).toFixed(2)} ${y}`; }
+    for (let i = SKY_N - 1; i >= 0; i--) { const y = (401 + h[i]).toFixed(2); d += `L${((i + 1) * w).toFixed(2)} ${y}L${(i * w).toFixed(2)} ${y}`; }
+    return d + 'Z';
+  }
+  function filtFx(t) {                                       // low-pass: a sideways smear on top (muffled reads soft)
+    const f = filtPos(t), lp = f.x < 0.5 ? Math.min(1, (0.5 - f.x) / 0.5) : 0, bx = sqA * lp * lp * 6 * (0.6 + 0.4 * outMeter().lv);
+    ffBlur.setAttribute('stdDeviation', `${bx.toFixed(2)} ${(bx * 0.15).toFixed(2)}`);
+    ffDisp.setAttribute('scale', '0');
+    shapePath.ownerSVGElement.style.filter = bx > 0.05 ? 'url(#filtfx)' : 'none';
+  }
+  function filtRender(t) {
+    const f = filtPos(t), px = FX0 + f.x * FSPAN, py = FX0 + f.y * FSPAN;
+    for (const o of filtDots) {
+      if (o.col === undefined) continue;                     // the letters keep their size
+      // Figma's logic, but empty at rest (Darius): with the knob in the middle there are no dots; pushed off centre they
+      // appear as specks and swell round the knob, the swell
+      // leaning on toward the corner it is heading for (up to 20 px nearest), and fade with distance back to specks
+      const ex = px + 0.6 * (px - 201), ey = py + 0.6 * (py - 201);           // the swell's centre, pushed outward
+      const amp = Math.min(1, Math.hypot(px - 201, py - 201) / 110);
+      const dist2 = (o.x - ex) * (o.x - ex) + (o.y - ey) * (o.y - ey);
+      // none at rest; once off centre every dot is at least 2 px, so even the far corner stays visible; up to 20 px
+      // nearest the knob
+      // … and the very furthest (about three, with the knob in a corner) fade away
+      const far = Math.max(0, Math.min(1, (470 - Math.sqrt(dist2)) / 50));
+      const d = (Math.min(1, amp * 4) * 2 + 18 * amp * Math.exp(-dist2 / (2 * 110 * 110))) * far;
+      o.el.style.width = o.el.style.height = d.toFixed(2) + 'px';
+      o.el.style.left = (o.x - d / 2).toFixed(2) + 'px'; o.el.style.top = (o.y - d / 2).toFixed(2) + 'px';
+    }
+  }
+  const filt = { x: 0.5, y: 0.5, glide: null, ptr: null, lastTap: null, sent: null };
+  function filtPos(t) {
+    if (filt.glide) {
+      const g = filt.glide, k = S(t - g.t0, 16, 0.8);
+      if (k >= 0.999 && t - g.t0 > 0.6) { filt.x = 0.5; filt.y = 0.5; filt.glide = null; }
+      else return { x: g.x + (0.5 - g.x) * k, y: g.y + (0.5 - g.y) * k };
+    }
+    return { x: filt.x, y: filt.y };
+  }
+  function filtSend(t) {                                     // to both synths, so the filter holds across styles
+    const f = filtPos(t);
+    if (filt.sent && Math.abs(filt.sent.x - f.x) + Math.abs(filt.sent.y - f.y) < 1e-4) return;
+    if (!AU.ready || !AU.anchored) return;
+    filt.sent = f;
+    for (const v of [1, 2]) post(v, [[EV.FILT, 0, f.x, f.y, 0]]);
+  }
+  const filtNorm = e => { const r = fig.getBoundingClientRect(), sc = r.width / 402;
+    return { x: Math.max(0, Math.min(1, ((e.clientX - r.left) / sc - FX0) / FSPAN)), y: Math.max(0, Math.min(1, ((e.clientY - r.top) / sc - FX0) / FSPAN)) }; };
+  filtEl.addEventListener('pointerdown', e => {
+    if (sqA < 0.9) return;
+    const t = now(), lt = filt.lastTap;
+    if (lt && t - lt.t < 0.35 && Math.hypot(e.clientX - lt.x, e.clientY - lt.y) < 40) {   // double-tap: home
+      const f = filtPos(t); filt.glide = { t0: t, x: f.x, y: f.y }; filt.lastTap = null; tick(660, 0.5); return;
+    }
+    filt.lastTap = { t, x: e.clientX, y: e.clientY };
+    filt.glide = null; filt.ptr = e.pointerId; filtEl.setPointerCapture(e.pointerId);
+    Object.assign(filt, filtNorm(e));
+  });
+  filtEl.addEventListener('pointermove', e => { if (e.pointerId === filt.ptr) Object.assign(filt, filtNorm(e)); });
+  function filtUp() { filt.ptr = null; }
+  for (const ev of ['pointerup', 'pointercancel']) filtEl.addEventListener(ev, e => { if (e.pointerId === filt.ptr) filtUp(); });
+
+  /* ---------- tape stop (step 6): hold anywhere on the band (v1's tapeDown / tapeUp) ---------- */
+  function tapeDown(t) {
+    if (!playing || tapeOn(t)) return;
+    tape = { ts: t, tr: null, tR: null };
+    if (AU.ready && AU.anchored) { post(snd().synth, [[EV.TSTART, t, 0, 0, 0]]); resync(t); }
+  }
+  function tapeUp(t) {
+    if (!tape || tape.tr != null) return;
+    tape.tr = Math.max(t, tape.ts);
+    tape.tR = gridT(Math.ceil(gridB(tape.tr) / 4 + 1e-6) * 4);   // the next downbeat of the grid it would have kept
+    if (AU.ready && AU.anchored) post(snd().synth, [[EV.TRESTART, tape.tR, 0, 0, 0]]);
+  }
+  let tapePtr = null;
+  fig.addEventListener('pointerdown', e => {
+    if (mode !== 5 || tapeA < 0.9) return;
+    const r = fig.getBoundingClientRect(), y = (e.clientY - r.top) / (r.width / 402);
+    if (Math.abs(y - 201) > tapeH(now()) / 2 + 10) return;
+    tapePtr = e.pointerId; fig.setPointerCapture(e.pointerId); tapeDown(now());
+  });
+  for (const ev of ['pointerup', 'pointercancel']) fig.addEventListener(ev, e => { if (e.pointerId === tapePtr) { tapePtr = null; tapeUp(now()); } });
+
+  /* ---------- screens: the mode dots, ← →, or a sideways swipe on the empty page move between them ---------- */
+  // all six: 0 rhyme, 1 pad, 2 sequencer, 3 bass, 4 filter, 5 tape stop
+  const ORDER = [0, 1, 2, 3, 4, 5];
+  const stepMode = dir => setMode(ORDER[mod(ORDER.indexOf(mode) + dir, ORDER.length)]);
+  let mode = 0;
+  const dotEls = [...document.querySelectorAll('.dots i')], modesBtn = document.querySelector('.modes');
+  // A screen change lands on the next beat (as v1 switched styles on the beat): the mode dots answer at once, then on
+  // the beat the colours flip instantly and the shape starts to morph.
+  let pending = null;                                          // { mode, t }: the screen waiting for its beat
+  function setMode(m) {
+    mode = m;
+    dotEls.forEach((el, i) => { const d = [8, 6, 4, 2, 1, 0.5][Math.min(5, Math.abs(i - mode))]; el.style.setProperty('--d', d + 'px'); });
+    modesBtn.setAttribute('aria-label', `Screen ${mode + 1} of 6. Next screen`);
+    const t = now(), b = beats(t), next = Math.ceil(b + 0.02);
+    pending = { mode, t: still || !playing ? t : seg.t0 + (next - seg.b0) / seg.bps };
+    if (typeof AU !== 'undefined') { tick(440 + mode * 88, 0.8); resync(Math.max(t, pending.t)); }   // the Pulse click stops with step 1
+  }
+  // Page colours. By default they alternate all the way through, white / black / white … (1, 3, 5 black). The logo
+  // cycles three ways (Darius): one colour for every screen, the opposite of the one showing (so it flips now);
+  // then every screen the other colour; then back to alternating.
+  let pageTheme = 0, pageDark = false;                        // 0 alternate, 1 / 2 one colour for all (pageDark)
+  const darkFor = m => pageTheme === 0 ? m % 2 === 1 : pageDark;
+  function paint(m) {
+    const dark = darkFor(m);
+    document.documentElement.classList.toggle('dark', dark);
+    document.querySelector('meta[name="theme-color"]').content = dark ? '#000000' : '#FFFFFF';
+  }
+  const logoEl = document.querySelector('.logo');
+  function cycleTheme() {
+    const m = +stage.dataset.mode || 0, cur = darkFor(m);
+    if (pageTheme === 0) { pageTheme = 1; pageDark = !cur; }
+    else if (pageTheme === 1) { pageTheme = 2; pageDark = !pageDark; }
+    else pageTheme = 0;
+    paint(m); tick(pageTheme ? 560 : 700, 0.4);
+    logoEl.setAttribute('aria-label', `Page colours: ${pageTheme ? (pageDark ? 'all black' : 'all white') : 'alternating'}. Tap to change`);
+  }
+  logoEl.addEventListener('click', cycleTheme);
+  logoEl.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cycleTheme(); } });
+  function applyMode(m, t) {
+    stage.dataset.mode = m;
+    paint(m);
+    morphAnim = { from: morph, to: m === 0 ? 0 : 1, t0: t };
+    pillAnim = { from: pill, to: m === 3 ? 1 : 0, t0: t };
+    tapeAnim = { from: tapeA, to: m === 5 ? 1 : 0, t0: t };
+    sqAnim = { from: sqA, to: m === 4 ? 1 : 0, t0: t };
+    bandAnim = { from: bandA, to: m === 2 ? 1 : 0, t0: t };
+    try { lastPos = null; } catch (_) {}                     // the style strip re-centres (it moves to the left half on step 3); not yet declared at start-up
+    if (m === 2) requestAnimationFrame(toneLayout);
+    if (m !== 4) filtUp();
+    if (m !== 3) bassAllUp(t);
+    if (m !== 5) tapeUp(t);
+    if (t > 0) knTrip = { t0: t, from: knFrom, to: m };
+    knFrom = m;
+  }
+  modesBtn.addEventListener('click', () => stepMode(1));
+  // a tap or click on the triangle starts the music (beat 1 lands on the tap); the next one stops it
+  // the first beat waits for the sound: the clock starts once the audio is running (a few ms once preloaded), or after
+  // 1.2 s regardless (no audio, or blocked), so beat 1's sound and picture land together
+  let waitStart = 0;
+  const audioOk = () => MUTE || (AU.ready && AU.ctx && AU.ctx.state === 'running' && AU.anchored);
+  function start() {
+    if (playing) return;
+    audioStart();
+    if (!audioOk()) { waitStart = waitStart || now(); return; }
+    waitStart = 0; doStart();
+  }
+  function doStart() {
+    if (settle) { const n = Math.floor(seg.b0); rotOff = mod(rotOff + (n === 0 ? 0 : 90 * n), 360); settle = null; }   // its resting angle
+    tape = null;
+    playing = true; playT = now(); if (!firstPlayT) firstPlayT = playT; seg = { t0: playT, b0: 0, bps: seg.bps }; fig.classList.remove('idle');
+    resync(playT);                                             // the loop starts over from its first 16th
+  }
+  // a second tap stops: the clock stands still, nothing more is sent, and what was sent ahead is dropped (tails ring out)
+  function stop() {
+    const t = now();
+    const b = beats(t), n = Math.floor(b);
+    settle = { t, tau: (b - n) / seg.bps };
+    stopX = X[mod(n, 4)];                                     // the bubbles fly into the knob here
+    barStop = { t, h: barEls.map(el => parseFloat(el.style.height) || 4) };   // the tempo bars shrink from where they were
+    seg = { t0: t, b0: b, bps: seg.bps }; playing = false; fig.classList.add('idle'); tape = null;
+    if (AU.ready && AU.anchored) for (const v of [1, 2]) AU.node[v].port.postMessage({ cancelGrid: toFrame(t) });
+  }
+  fig.addEventListener('pointerdown', e => {
+    if (mode !== 0 || morph > 0.1) return;
+    const r = fig.getBoundingClientRect(), sc = r.width / 402, x = (e.clientX - r.left) / sc, y = (e.clientY - r.top) / sc;
+    const V = triVerts(), side = (p, q) => (q[0] - p[0]) * (y - p[1]) - (q[1] - p[1]) * (x - p[0]);
+    const s0 = side(V[0], V[1]), s1 = side(V[1], V[2]), s2 = side(V[2], V[0]);
+    if ((s0 >= 0 && s1 >= 0 && s2 >= 0) || (s0 <= 0 && s1 <= 0 && s2 <= 0)) { if (playing) stop(); else if (waitStart) waitStart = 0; else start(); }
+  });
+  addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight') stepMode(1); else if (e.key === 'ArrowLeft') stepMode(-1);
+    else if (mode === 1 && /^[jkl]$/i.test(e.key)) hit({ j: 1, k: 2, l: 3 }[e.key.toLowerCase()], now());
+  });
+  let swipe = null;
+  stage.addEventListener('pointerdown', e => { if (e.target === stage) swipe = { x: e.clientX, y: e.clientY }; });
+  stage.addEventListener('pointerup', e => {
+    if (!swipe) return; const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y; swipe = null;
+    if (Math.abs(dx) > 40 && Math.abs(dx) > 1.5 * Math.abs(dy)) stepMode(dx < 0 ? 1 : -1);
+  });
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  setMode(0); applyMode(0, 0); pending = null;
+
+  let lastPos = null;
+  function frame() {
+    const t = now();
+    if (anim) { pos = anim.from + (anim.to - anim.from) * S(t - anim.t0, still ? 1e3 : 16); if (t - anim.t0 > 0.8) { pos = anim.to; anim = null; } }
+    if (pos !== lastPos) { layoutStrip(); lastPos = pos; }
+    if (pending && t >= pending.t) { applyMode(pending.mode, pending.t); pending = null; }
+    if (tape && tape.tR != null && t > tape.tR + 1.5) tape = null;   // a finished tape stop, settled: forget it
+    if (!still || lastPos === null) { rhyme(t); bars(t); }
+    pump(); filtSend(t);
+    if (waitStart && (audioOk() || t - waitStart > 1.2)) { waitStart = 0; doStart(); }   // the sound is ready: go
+    if (!still) { if (kitNow()) guitarRender(t); else speakerRender(t); }
+    keyRender(still ? t + 9 : t);
+    shapeRender(t);
+    if (morph > 0.5) padRender(t);
+    knobRender(t);
+    requestAnimationFrame(frame);
+  }
+  choose(FIRST);
+  setTimeout(audioInit, 0);                                   // build the audio engine now, so the first tap starts at once
+  document.fonts.ready.then(() => { lastPos = null; });       // re-measure once SF Pro is in
+  frame();
+</script>
+</body>
+</html>
