@@ -314,7 +314,7 @@
   for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
   document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
   document.addEventListener('dblclick', e => e.preventDefault(), { passive: false });
-  var sFit = 1, bassHalf = 134, bandT = 1, bandB = 514, bandTop = 237, topDy = 0, fitN = 0;   // set by fit (declared first: fit runs right away)
+  var sFit = 1, bassHalf = 134, FH = 201, FY = 0, bandT = 1, bandB = 514, bandTop = 237, topDy = 0, fitN = 0;   // set by fit (declared first: fit runs right away)
   // piecewise-linear through Figma's frames: [frame height, value] at 640 (iPhone SE class), 874 (iPhone 17), 1000
   const lerpH = (pts, h) => { const i = h < pts[1][0] ? 0 : 1, [x0, y0] = pts[i], [x1, y1] = pts[i + 1];
                               return y0 + (y1 - y0) * (h - x0) / (x1 - x0); };
@@ -332,6 +332,11 @@
     // edges where they must; only the Bass pill gets shorter (294 px tall at 640, 402 at 874), keeping its 134 px width
     sFit = 1;
     bassHalf = Math.max(50, Math.min(134, lerpH([[640, 80.2], [874, 134], [1000, 134]], h)));
+    // the Filter square (Figma 320 × 640 "iPhone 17 - 38", 874 × 1000 "- 32"): no wider than the screen (320 on a 320
+    // phone; the letters and dots keep their size, the grid closes up), centred, but never above the Sequencer band's
+    // top, so it clears the names on short screens (y 183 at 640)
+    FH = Math.min(201, stage.clientWidth / 2);
+    FY = Math.max(0, bandTop - (H / 2 - FH));
     bandT = bandTop - H / 2 + 201;
     bandB = top + lerpH([[640, 526], [874, 750], [1000, 876]], h) - H / 2 + 201;
     fitN++;
@@ -1049,7 +1054,9 @@
     if (tape.tR == null || t < tape.tR) return f(t);
     return Math.max(0, TR(t - tape.tR, f(tape.tR), 0, 20, 0.9));
   }
-  const tapeH = t => 322 - 188 * tapeFlat(t);
+  // the blocks: 322 tall (no taller than the Filter square: 320 on a 320 px phone, Figma "iPhone 17 - 39"), centred
+  // where the square is (tapeC), squashing to 134
+  const tapeH = t => { const h0 = Math.min(322, 2 * FH); return h0 - (h0 - 134) * tapeFlat(t); }, tapeC = () => 201 + FY;
   // how far a ray from the centre runs to the pill's edge: a capsule of radius 67 round the segment y −134 … +134,
   // each end pushed out by the bass knob's overdrag (ext: [top, bottom] in px)
   function capsuleR(dx, dy, ext) {
@@ -1099,18 +1106,20 @@
     const angs = [];
     for (let i = 0; i < RAYS; i++) angs.push(i * 2 * Math.PI / RAYS);
     if (rho < 0.01) for (const [vx, vy] of V) angs.push(mod(Math.atan2(vx - cx, -(vy - cy)), 2 * Math.PI));   // sharp corners stay sharp
-    if (sqA > 0.001) for (const c of [1, 3, 5, 7]) angs.push(c * Math.PI / 4);   // its corners stay sharp
+    const SQ = [[201 - FH, 201 + FY - FH], [201 + FH, 201 + FY - FH], [201 + FH, 201 + FY + FH], [201 - FH, 201 + FY + FH]];
+    if (sqA > 0.001) for (const [x, y] of SQ) angs.push(mod(Math.atan2(x - 201, -(y - 201)), 2 * Math.PI));   // its corners stay sharp
     if (bandA > 0.001) for (const [x, y] of OCT) angs.push(mod(Math.atan2(x - 201, -(y - 201)), 2 * Math.PI));   // its corners stay sharp
-    if (tapeA > 0.001) { const hh = tapeH(t) / 2; for (const [sx, sy] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) angs.push(mod(Math.atan2(sx * 201, -sy * hh), 2 * Math.PI)); }
+    const TB = [[0, tapeC() - th / 2], [402, tapeC() - th / 2], [402, tapeC() + th / 2], [0, tapeC() + th / 2]];
+    if (tapeA > 0.001) for (const [x, y] of TB) angs.push(mod(Math.atan2(x - 201, -(y - 201)), 2 * Math.PI));
     angs.sort((a, b) => a - b);
     let d = '';
     for (const a of angs) {
       const dx = Math.sin(a), dy = -Math.cos(a), r0 = rayHit(cx, cy, dx, dy, O), r = isFinite(r0) ? r0 : 161;
       let rr = (r + (161 - r) * w) * k;
       if (pill > 0.001) rr += (capsuleR(dx, dy, ext) - rr) * pill;   // the circle stretches to the pill
-      if (sqA > 0.001) rr += (201 / Math.max(Math.abs(dx), Math.abs(dy)) - rr) * sqA;   // … or the filter square
+      if (sqA > 0.001) rr += (rayHit(201, 201, dx, dy, SQ) - rr) * sqA;   // … or the filter square
       if (bandA > 0.001) rr += (rayHit(201, 201, dx, dy, OCT) - rr) * bandA;   // … or the band, an octagon
-      if (tapeA > 0.001) rr += (Math.min(201 / Math.max(1e-6, Math.abs(dx)), th / 2 / Math.max(1e-6, Math.abs(dy))) - rr) * tapeA;   // … or the band
+      if (tapeA > 0.001) rr += (rayHit(201, 201, dx, dy, TB) - rr) * tapeA;   // … or the band
       d += (d ? 'L' : 'M') + (cx + dx * rr).toFixed(2) + ' ' + (cy + dy * rr).toFixed(2);
     }
     // the filter square, once it has arrived, is drawn as its bar graph instead
@@ -1136,7 +1145,7 @@
     // the tape's gap opens down the middle as the band arrives, splitting it into Figma's two blocks
     const gw = 134 * smooth((tapeA - 0.4) / 0.6);
     gapEl.setAttribute('x', (201 - gw / 2).toFixed(2)); gapEl.setAttribute('width', gw.toFixed(2));
-    gapEl.setAttribute('y', (201 - th / 2 - 2).toFixed(2)); gapEl.setAttribute('height', (th + 4).toFixed(2));
+    gapEl.setAttribute('y', (tapeC() - th / 2 - 2).toFixed(2)); gapEl.setAttribute('height', (th + 4).toFixed(2));
     gapEl.style.transformOrigin = shapePath.style.transformOrigin; gapEl.style.transform = gt;
     // each screen's contents ride on the shape: the bubbles leave as it rounds, the pad arrives as it settles
     bubLayer.style.opacity = Math.max(0, 1 - morph * 2.5).toFixed(3);
@@ -1222,9 +1231,9 @@
     const n = Math.floor(beats(t) * (m === 0 ? 1 : 4));
     if (m === 0) return firstPlayT ? { x: X[mod(n, 4)], y: 201, d: 24 } : { x: 201, y: 201, d: 24 };   // before the first tap: the centre (Darius)
     if (m === 3) { padKnob = null; knobMid = false; return { x: 201, y: noteY(bassShown(t)), d: 24 }; }   // v1: it is the bass
-    if (m === 5) { padKnob = null; knobMid = false; return { x: 201, y: 201, d: 24 }; }   // Figma: centred in the gap
+    if (m === 5) { padKnob = null; knobMid = false; return { x: 201, y: tapeC(), d: 24 }; }   // Figma: centred in the gap
     if (m === 2) { padKnob = null; knobMid = false; return { x: 201, y: seqRowY(mod(Math.floor(beats(t) * 4), 32)), d: 24 }; }   // the playhead
-    if (m === 4) { padKnob = null; knobMid = false; const f = filtPos(t); return { x: FX0 + f.x * FSPAN, y: FX0 + f.y * FSPAN, d: 24 }; }   // the puck
+    if (m === 4) { padKnob = null; knobMid = false; const f = filtPos(t); return { x: fgx(f.x), y: fgy(f.y), d: 24 }; }   // the puck
     const loop = loops[shown], len = loop[1].length, st = mod(n, STEPS);
     const lane = KLANES.find(l => loop[l][st % len]);
     padKnob = lane ? { st, lane } : null;
@@ -1571,15 +1580,17 @@
      x: 0 … 0.5 low-pass closing to the left, 0.5 open, 0.5 … 1 high-pass closing to the right; y: 0 top, most
      resonance … 1 bottom, none. The puck rides the dot grid (61 … 341 px), stays where let go; a double-tap glides
      it back to the centre, open. */
-  const FX0 = 61, FSPAN = 280;
+  // the dot grid sits 61 px in from the square's edges: 70 px apart in the full square, closer in a narrow one
+  const FSPAN = () => 2 * FH - 122, fgx = u => 201 - FH + 61 + u * FSPAN(), fgy = u => 201 + FY - FH + 61 + u * FSPAN();
   const filtEl = document.querySelector('.filt');
   const filtDots = [];
   [8, 6, 4, 2, 1].forEach((d, col) => { for (let row = 0; row < 5; row++) (() => {
     const L = { '2,0': 'R', '0,2': 'L', '4,2': 'H' }[col + ',' + row];   // no X: a dot below (Darius)
-    const x = FX0 + col * 70, y = FX0 + row * 70;
+    const x = fgx(col / 4), y = fgy(row / 4);
+    if (col === 2 && !L) return;                             // no dots down the middle, ever (Darius): only R there
     if (L) {
       const p = document.createElement('p'); p.className = 't'; p.textContent = L;
-      p.style.left = x + 'px'; p.style.top = y + 'px'; filtEl.appendChild(p); filtDots.push({ el: p, x, y, d: 16 }); return;
+      p.style.left = x + 'px'; p.style.top = y + 'px'; filtEl.appendChild(p); filtDots.push({ el: p, x, y, d: 16, lc: col, lr: row }); return;
     }
     const i = document.createElement('i'); i.style.width = i.style.height = d + 'px';
     i.style.left = (x - d / 2) + 'px'; i.style.top = (y - d / 2) + 'px'; filtEl.appendChild(i);
@@ -1618,10 +1629,10 @@
     return h;
   }
   function skylinePath(h, gt) {
-    const w = 402 / SKY_N;
-    let d = 'M0 ' + (1 - h[0]).toFixed(2);
-    for (let i = 0; i < SKY_N; i++) { const y = (1 - h[i]).toFixed(2); d += `L${(i * w).toFixed(2)} ${y}L${((i + 1) * w).toFixed(2)} ${y}`; }
-    for (let i = SKY_N - 1; i >= 0; i--) { const y = (401 + h[i]).toFixed(2); d += `L${((i + 1) * w).toFixed(2)} ${y}L${(i * w).toFixed(2)} ${y}`; }
+    const w = 2 * FH / SKY_N, x0 = 201 - FH, top = 201 + FY - FH, bot = 201 + FY + FH;
+    let d = `M${x0.toFixed(2)} ` + (top - h[0]).toFixed(2);
+    for (let i = 0; i < SKY_N; i++) { const y = (top - h[i]).toFixed(2); d += `L${(x0 + i * w).toFixed(2)} ${y}L${(x0 + (i + 1) * w).toFixed(2)} ${y}`; }
+    for (let i = SKY_N - 1; i >= 0; i--) { const y = (bot + h[i]).toFixed(2); d += `L${(x0 + (i + 1) * w).toFixed(2)} ${y}L${(x0 + i * w).toFixed(2)} ${y}`; }
     return d + 'Z';
   }
   function filtFx(t) {                                       // low-pass: a sideways smear on top (muffled reads soft)
@@ -1631,20 +1642,24 @@
     shapePath.ownerSVGElement.style.filter = bx > 0.05 ? 'url(#filtfx)' : 'none';
   }
   function filtRender(t) {
-    const f = filtPos(t), px = FX0 + f.x * FSPAN, py = FX0 + f.y * FSPAN;
+    const f = filtPos(t), px = fgx(f.x), py = fgy(f.y);
     for (const o of filtDots) {
-      if (o.col === undefined) continue;                     // the letters keep their size
+      if (o.col === undefined) {                             // the letters keep their size, following the grid
+        o.x = fgx(o.lc / 4); o.y = fgy(o.lr / 4); o.el.style.left = o.x + 'px'; o.el.style.top = o.y + 'px'; continue;
+      }
+      o.x = fgx(o.col / 4); o.y = fgy(o.row / 4);
       // Figma's logic: with the knob in the middle every dot is a 1 px speck (Figma 56:3748); pushed off centre they
       // grow to 2 px and swell round the knob, the swell
       // leaning on toward the corner it is heading for (up to 20 px nearest), and fade with distance back to specks
-      const ex = px + 0.6 * (px - 201), ey = py + 0.6 * (py - 201);           // the swell's centre, pushed outward
-      const amp = Math.min(1, Math.hypot(px - 201, py - 201) / 110);
+      const gc = fgx(0.5), gm = fgy(0.5), gk = FSPAN() / 280;               // the grid's centre and scale (1 in the full square)
+      const ex = px + 0.6 * (px - gc), ey = py + 0.6 * (py - gm);             // the swell's centre, pushed outward
+      const amp = Math.min(1, Math.hypot(px - gc, py - gm) / (110 * gk));
       const dist2 = (o.x - ex) * (o.x - ex) + (o.y - ey) * (o.y - ey);
       // 1 px at rest; once off centre every dot is at least 2 px, so even the far corner stays visible; up to 20 px
       // nearest the knob
       // … and the very furthest (about three, with the knob in a corner) fade away
-      const far = Math.max(0, Math.min(1, (470 - Math.sqrt(dist2)) / 50));
-      const d = (1 + Math.min(1, amp * 4) + 18 * amp * Math.exp(-dist2 / (2 * 110 * 110))) * far;
+      const far = Math.max(0, Math.min(1, (470 * gk - Math.sqrt(dist2)) / (50 * gk)));
+      const d = (1 + Math.min(1, amp * 4) + 18 * amp * Math.exp(-dist2 / (2 * 110 * 110 * gk * gk))) * far;
       // a bare speck under the knob would read as a pinhole in it (Figma shows the knob whole); real dots still overlap
       o.el.style.visibility = d < 2 && Math.hypot(o.x - px, o.y - py) < 12 ? 'hidden' : '';
       o.el.style.width = o.el.style.height = d.toFixed(2) + 'px';
@@ -1668,7 +1683,7 @@
     for (const v of [1, 2]) post(v, [[EV.FILT, 0, f.x, f.y, 0]]);
   }
   const filtNorm = e => { const r = fig.getBoundingClientRect(), sc = r.width / 402;
-    return { x: Math.max(0, Math.min(1, ((e.clientX - r.left) / sc - FX0) / FSPAN)), y: Math.max(0, Math.min(1, ((e.clientY - r.top) / sc - FX0) / FSPAN)) }; };
+    return { x: Math.max(0, Math.min(1, ((e.clientX - r.left) / sc - fgx(0)) / FSPAN())), y: Math.max(0, Math.min(1, ((e.clientY - r.top) / sc - fgy(0)) / FSPAN())) }; };
   filtEl.addEventListener('pointerdown', e => {
     if (sqA < 0.9) return;
     const t = now(), lt = filt.lastTap;
@@ -1700,7 +1715,7 @@
   fig.addEventListener('pointerdown', e => {
     if (mode !== 5 || tapeA < 0.9) return;
     const r = fig.getBoundingClientRect(), y = (e.clientY - r.top) / (r.width / 402);
-    if (Math.abs(y - 201) > tapeH(now()) / 2 + 10) return;
+    if (Math.abs(y - tapeC()) > tapeH(now()) / 2 + 10) return;
     tapePtr = e.pointerId; fig.setPointerCapture(e.pointerId); tapeDown(now());
   });
   for (const ev of ['pointerup', 'pointercancel']) fig.addEventListener(ev, e => { if (e.pointerId === tapePtr) { tapePtr = null; tapeUp(now()); } });
