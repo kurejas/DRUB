@@ -155,7 +155,7 @@
   .bubbles { position: absolute; inset: 0; transform-origin: 201px 201px; }
   /* the start screen (Figma "step 1." 42:3232): before the first tap only the knob is out, and START sits on the
      triangle's centre, 16 px, each letter narrower than the last; it pinches away on the tap and comes back on a stop */
-  html:not(.helpon) .start { display: none; }               /* only with help on (Darius); and only until the first play */
+  /* only with help on (Darius), and only until the first play; it pinches in and out with help (helpAt) */
   .start { left: 201.5px; top: 201px; font-size: 16px; color: #fff; mix-blend-mode: difference; transform: translate(-50%, -50%);
            pointer-events: none; }
   .bub { position: absolute; top: 201px; left: 0; width: 24px; height: 24px; margin: -12px 0 0 -12px; border-radius: 50%;
@@ -337,6 +337,7 @@
   };
   document.querySelector('.help').addEventListener('click', e => {
     const on = document.documentElement.classList.toggle('helpon'); e.currentTarget.classList.toggle('on', on);
+    helpAnim = { from: helpAt(), to: on ? 1 : 0, t0: now() };
   });
   var midUndo = null;                                          // set by a press in the middle, undone if it was a swipe
   // no zooming on phones: double-tap is off via touch-action, pinch is stopped here (Safari ignores user-scalable=no)
@@ -447,7 +448,11 @@
   /* ---------- tempo: the beat clock keeps counting across tempo changes ---------- */
   // Nothing plays until the first tap or click on the triangle: until then the clock stands still at beat 0.
   let playing = false, playT = 0, firstPlayT = 0;             // firstPlayT: START shows only until this first play
-  const startX = () => document.documentElement.classList.contains('helpon') ? 72.6 : 201;   // where the knob waits
+  // help on/off as a spring (0 … 1): START pinches in and out with it, and the waiting knob glides between the centre
+  // and the left bubble (Figma "step 1."), out of START's way
+  let helpAnim = { from: 0, to: 0, t0: -9 };
+  const helpAt = (t = now()) => helpAnim.from + (helpAnim.to - helpAnim.from) * S(t - helpAnim.t0, 9);
+  const startX = () => 201 + (72.6 - 201) * helpAt();       // where the knob waits
   let seg = { t0: now(), b0: 0, bps: STYLES[FIRST].bpm / 60 };
   // Tape stop (step 6, v1's): while held the clock winds down to a halt over TAPE_D seconds; let go, it waits and
   // comes back on the next downbeat of the grid it would have kept ("on the one"). tape: { ts, tr, tR } (v1's names)
@@ -594,7 +599,7 @@
     // another, to their places (and back in behind it on a stop); START pinches away as they go and stays away
     const shown_ = playing ? S(t - playT, 26) : settle ? Math.max(0, 1 - S(t - settle.t, 26)) : 0;
     // START is only for the very first screen: once played, a stop leaves it off
-    const sw = !firstPlayT ? 1 : playing && playT === firstPlayT ? Math.min(1, Math.max(0, 1 - shown_ * 1.6)) : 0;
+    const sw = Math.max(0, Math.min(1, helpAt(t))) * (!firstPlayT ? 1 : playing && playT === firstPlayT ? Math.min(1, Math.max(0, 1 - shown_ * 1.6)) : 0);
     startLetters.forEach((sp, i) => sp.style.setProperty('--w', (30 + (START_W[i] - 30) * sw).toFixed(1)));
     startEl.style.opacity = sw.toFixed(3);
     bubs.forEach((bb, i) => {
@@ -1284,7 +1289,8 @@
     const m = tapeA > 0.5 ? 5 : sqA > 0.5 ? 4 : pill > 0.5 ? 3 : bandA > 0.5 ? 2 : morph > 0.5 ? 1 : 0, job = knobJob(m, t);
     if (!kn) kn = { x: job.x, y: job.y, d: job.d, fx: job.x, fy: job.y, fd: job.d, tx: job.x, ty: job.y, td: job.d, t0: t };
     if (Math.hypot(job.x - kn.tx, job.y - kn.ty) > 0.5 || job.d !== kn.td) { kn.fx = kn.x; kn.fy = kn.y; kn.fd = kn.d; kn.tx = job.x; kn.ty = job.y; kn.td = job.d; kn.t0 = t; }
-    const k = m === 3 || m === 4 ? 1 : S(t - kn.t0, morph > 0.5 ? 40 : 26);   // on the pad it hops quickly; on the bass it is the note itself
+    // on the pad it hops quickly; on the bass it is the note itself; waiting for the first play it rides helpAt's spring
+    const k = m === 3 || m === 4 || (m === 0 && !firstPlayT) ? 1 : S(t - kn.t0, morph > 0.5 ? 40 : 26);
     kn.x = kn.fx + (kn.tx - kn.fx) * k; kn.y = kn.fy + (kn.ty - kn.fy) * k; kn.d = kn.fd + (kn.td - kn.fd) * k;
     // figure coordinates → the stage
     const fr = fig.getBoundingClientRect(), sr = stage.getBoundingClientRect(), sc = fr.width / 402;
@@ -1472,14 +1478,14 @@
   const seqEl = document.querySelector('.seq');
   // columns, left to right D S | H M (Darius): the drums' backbone, the knob's track, then hat and melody, low to high.
   // Indexed by line: 0 M (melody), 1 D (the kick), 2 S, 3 H
-  const SEQ_X = [316.5, 85.5, 144.8, 257.5], SEQ_L = ['M', 'D', 'S', 'H'];   // Figma 56:4032: pairs 59 px apart, 113 across the track
+  const SEQ_X = [316.5, 85.5, 144.8, 257.5], SEQ_L = ['M', 'K', 'S', 'H'];   // Figma 56:4032 spacing; K the kick, as on the pad (KICK everywhere)
   // first row to last: Figma 308 … 719 (411 px), stretched with the band on tall screens
   const seqTop0 = () => bandT + 71, seqSpan = () => bandB - bandT - 102;
   const seqRowY = i => seqTop0() + i * seqSpan() / 31;
   const seqDots = [[], [], [], []], seqHead = [], seqGhost = [[], [], [], []];
   SEQ_X.forEach((x, lane) => {
     const h = document.createElement('p'); h.className = 't';
-    h.innerHTML = helpWord({ D: 'DRUM', S: 'SNARE', H: 'HAT', M: 'M' }[SEQ_L[lane]], 100);
+    h.innerHTML = helpWord({ K: 'KICK', S: 'SNARE', H: 'HAT', M: 'M' }[SEQ_L[lane]], 100);
     h.style.left = x + 'px'; seqEl.appendChild(h); seqHead.push(h);
     for (let i = 0; i < 32; i++) {
       const g = document.createElement('i'); g.style.opacity = '0'; seqEl.appendChild(g); seqGhost[lane].push(g);   // its echo
