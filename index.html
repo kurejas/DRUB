@@ -95,11 +95,14 @@
   .help::before { content: ''; position: absolute; inset: -14px -16px; }   /* a 48 px tap zone */
   /* Help on: every initial spells out its word (K → KICK). The added letters open out of the initial on the width
      axis, narrow to wide, and fold back when help goes off; in the Sequencer's tight columns they stay narrower */
-  @property --hw { syntax: '<number>'; inherits: true; initial-value: 50; }
+  /* each word is set like the style names: widest in the middle (150), 25 narrower per letter outward (helpWord) */
+  @property --lw { syntax: '<number>'; inherits: false; initial-value: 150; }
   .t .more { display: inline-block; max-width: 0; overflow: hidden; vertical-align: top; white-space: nowrap;
-             font-variation-settings: "wdth" var(--hw), "opsz" 28; transition: max-width 0.32s ease, --hw 0.32s ease; }
-  html.helpon .t .more { max-width: 12em; --hw: var(--hw-on, 150); }
-  .seq .t .more { --hw-on: 75; }
+             transition: max-width 0.32s ease; }
+  .t .hl { font-variation-settings: "wdth" var(--lw), "opsz" 28; transition: --lw 0.32s ease; }
+  .t .more .hl { --lw: 50; }
+  html.helpon .t .more { max-width: 12em; }
+  html.helpon .t .hl { --lw: var(--on); }
 
   /* the style picker: its instrument, then the name between the fading neighbours */
   /* The sound-source switch: guitar = ACOUSTIC (the recordings), speaker = SYNTH, as v1's SYNTH/ACOUSTIC switch. It
@@ -223,7 +226,7 @@
   .pad .lbl { position: absolute; left: 161px; transform: translateX(-50%); font-size: 20px; }
   .pad .lbl.k { top: 92.5px; }  .pad .lbl.h { top: 154px; }  .pad .lbl.s { top: 216px; }
   .pad .lbl.small { font-size: 16px; }
-  .pad .lbl.narrow { --w: 50; }                                /* tapped: same size, narrowed on the width axis (Figma) */
+  .pad .lbl.narrow { --w: 50; } .pad .lbl.narrow .hl { --lw: 50; }                                /* tapped: same size, narrowed on the width axis (Figma) */
   .pad .lbl.k.small { top: 93.9px; }  .pad .lbl.h.small { top: 155.4px; }  .pad .lbl.s.small { top: 217.4px; }
   .pad .base .dot { background: var(--paper); }
   .pad .base .lbl { color: var(--paper); }
@@ -324,6 +327,14 @@
 <script>
   // Fit: the square shrinks on short screens so the turned triangle (402 tall) never meets the style picker.
   const stage = document.querySelector('.stage'), fig = document.querySelector('.figure');
+  // a label's initial, then the rest of its word folded away until help is on; each letter's width when spelled out
+  // follows the style names: 150 in the middle of the word, 25 less per letter outward
+  // (top: the middle letter's width; the Sequencer's columns are 59 px apart, so its words are set 50 narrower)
+  const helpWord = (w, top = 150) => {
+    const mid = (w.length - 1) / 2, ws = [...w].map((c, i) => Math.max(50, top - 25 * Math.abs(i - mid)));
+    const sp = i => `<span class="hl" style="--on: ${ws[i]}">${w[i]}</span>`;
+    return sp(0) + `<span class="more">${[...w].slice(1).map((_, i) => sp(i + 1)).join('')}</span>`;
+  };
   document.querySelector('.help').addEventListener('click', e => {
     const on = document.documentElement.classList.toggle('helpon'); e.currentTarget.classList.toggle('on', on);
   });
@@ -635,7 +646,7 @@
       d.dataset.x = (Math.sin(a) * r).toFixed(2); d.dataset.y = (-Math.cos(a) * r).toFixed(2);
       L.appendChild(d); dots.push({ el: d, lane, st });
     }
-    L.insertAdjacentHTML('beforeend', '<p class="t lbl k">K<span class="more">ICK</span></p><p class="t lbl h">H<span class="more">AT</span></p><p class="t lbl s">S<span class="more">NARE</span></p>');
+    L.insertAdjacentHTML('beforeend', `<p class="t lbl k">${helpWord('KICK')}</p><p class="t lbl h">${helpWord('HAT')}</p><p class="t lbl s">${helpWord('SNARE')}</p>`);
     pad.appendChild(L); return { L, dots, lbl: [null, L.querySelector('.lbl.k'), L.querySelector('.lbl.s'), L.querySelector('.lbl.h')] };
   }
   const padBase = layer('base');
@@ -1466,7 +1477,7 @@
   const seqDots = [[], [], [], []], seqHead = [], seqGhost = [[], [], [], []];
   SEQ_X.forEach((x, lane) => {
     const h = document.createElement('p'); h.className = 't';
-    h.innerHTML = SEQ_L[lane] + `<span class="more">${{ D: 'RUM', S: 'NARE', H: 'AT', M: '' }[SEQ_L[lane]]}</span>`;
+    h.innerHTML = helpWord({ D: 'DRUM', S: 'SNARE', H: 'HAT', M: 'M' }[SEQ_L[lane]], 100);
     h.style.left = x + 'px'; seqEl.appendChild(h); seqHead.push(h);
     for (let i = 0; i < 32; i++) {
       const g = document.createElement('i'); g.style.opacity = '0'; seqEl.appendChild(g); seqGhost[lane].push(g);   // its echo
@@ -1512,7 +1523,7 @@
     const ky = kn ? kn.y : -99;                                 // the knob's own (sprung) height on the track
     seqMarks.forEach((m, beat) => { m.y = seqRowY(Math.min(31, beat * 4)); m.el.style.top = (m.y - 1).toFixed(2) + 'px'; m.el.style.opacity = Math.abs(m.y - ky) < 13 ? 0 : 1; });
     for (const h of seqHead) h.style.top = (seqTop0() - 34).toFixed(2) + 'px';
-    const ini = toneList()[toneIdx()][0], nm = toneList()[toneIdx()], mh = `<span class="mdash">M—</span><span style="--w: 150">${ini}</span><span class="more">${nm.slice(1)}</span>`;
+    const ini = toneList()[toneIdx()][0], nm = toneList()[toneIdx()], mh = `<span class="mdash">M—</span>` + helpWord(nm, 100);
     if (seqHead[0].innerHTML !== mh) seqHead[0].innerHTML = mh;
     for (let lane = 0; lane < 4; lane++) {
       seqHead[lane].classList.toggle('mute', muted[lane]);
@@ -1627,7 +1638,7 @@
     if (col === 2 && !L) return;                             // no dots down the middle, ever (Darius): only R there
     if (L) {
       const p = document.createElement('p'); p.className = 't';
-      p.innerHTML = L + `<span class="more">${{ R: 'ESONANCE', L: 'OW', H: 'IGH' }[L]}</span>`;
+      p.innerHTML = helpWord({ R: 'RESONANCE', L: 'LOW', H: 'HIGH' }[L]);
       p.style.left = x + 'px'; p.style.top = y + 'px'; filtEl.appendChild(p); filtDots.push({ el: p, x, y, d: 16, lc: col, lr: row }); return;
     }
     const i = document.createElement('i'); i.style.width = i.style.height = d + 'px';
