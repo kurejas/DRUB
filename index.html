@@ -1580,8 +1580,9 @@
      x: 0 … 0.5 low-pass closing to the left, 0.5 open, 0.5 … 1 high-pass closing to the right; y: 0 top, most
      resonance … 1 bottom, none. The puck rides the dot grid (61 … 341 px), stays where let go; a double-tap glides
      it back to the centre, open. */
-  // the dot grid sits 61 px in from the square's edges: 70 px apart in the full square, closer in a narrow one
-  const FSPAN = () => 2 * FH - 122, fgx = u => 201 - FH + 61 + u * FSPAN(), fgy = u => 201 + FY - FH + 61 + u * FSPAN();
+  // the dot grid: the margin from the square's edge equals the gap between columns, and the same down the rows (Darius),
+  // so the five sit at 1/6 … 5/6 of the square: 67 px apart in the full 402 square, 53 in a 320 one
+  const FSPAN = () => 2 * FH * 4 / 6, fgx = u => 201 - FH + 2 * FH / 6 + u * FSPAN(), fgy = u => 201 + FY - FH + 2 * FH / 6 + u * FSPAN();
   const filtEl = document.querySelector('.filt');
   const filtDots = [];
   [8, 6, 4, 2, 1].forEach((d, col) => { for (let row = 0; row < 5; row++) (() => {
@@ -1651,7 +1652,7 @@
       // Figma's logic: with the knob in the middle every dot is a 1 px speck (Figma 56:3748); pushed off centre they
       // grow to 2 px and swell round the knob, the swell
       // leaning on toward the corner it is heading for (up to 20 px nearest), and fade with distance back to specks
-      const gc = fgx(0.5), gm = fgy(0.5), gk = FSPAN() / 280;               // the grid's centre and scale (1 in the full square)
+      const gc = fgx(0.5), gm = fgy(0.5), gk = FSPAN() / 268;               // the grid's centre and scale (1 in the full square)
       const ex = px + 0.6 * (px - gc), ey = py + 0.6 * (py - gm);             // the swell's centre, pushed outward
       const amp = Math.min(1, Math.hypot(px - gc, py - gm) / (110 * gk));
       const dist2 = (o.x - ex) * (o.x - ex) + (o.y - ey) * (o.y - ey);
