@@ -1616,17 +1616,19 @@
     const f = filtPos(t), px = FX0 + f.x * FSPAN, py = FX0 + f.y * FSPAN;
     for (const o of filtDots) {
       if (o.col === undefined) continue;                     // the letters keep their size
-      // Figma's logic, but empty at rest (Darius): with the knob in the middle there are no dots; pushed off centre they
-      // appear as specks and swell round the knob, the swell
+      // Figma's logic: with the knob in the middle every dot is a 1 px speck (Figma 56:3748); pushed off centre they
+      // grow to 2 px and swell round the knob, the swell
       // leaning on toward the corner it is heading for (up to 20 px nearest), and fade with distance back to specks
       const ex = px + 0.6 * (px - 201), ey = py + 0.6 * (py - 201);           // the swell's centre, pushed outward
       const amp = Math.min(1, Math.hypot(px - 201, py - 201) / 110);
       const dist2 = (o.x - ex) * (o.x - ex) + (o.y - ey) * (o.y - ey);
-      // none at rest; once off centre every dot is at least 2 px, so even the far corner stays visible; up to 20 px
+      // 1 px at rest; once off centre every dot is at least 2 px, so even the far corner stays visible; up to 20 px
       // nearest the knob
       // … and the very furthest (about three, with the knob in a corner) fade away
       const far = Math.max(0, Math.min(1, (470 - Math.sqrt(dist2)) / 50));
-      const d = (Math.min(1, amp * 4) * 2 + 18 * amp * Math.exp(-dist2 / (2 * 110 * 110))) * far;
+      const d = (1 + Math.min(1, amp * 4) + 18 * amp * Math.exp(-dist2 / (2 * 110 * 110))) * far;
+      // a bare speck under the knob would read as a pinhole in it (Figma shows the knob whole); real dots still overlap
+      o.el.style.visibility = d < 2 && Math.hypot(o.x - px, o.y - py) < 12 ? 'hidden' : '';
       o.el.style.width = o.el.style.height = d.toFixed(2) + 'px';
       o.el.style.left = (o.x - d / 2).toFixed(2) + 'px'; o.el.style.top = (o.y - d / 2).toFixed(2) + 'px';
     }
