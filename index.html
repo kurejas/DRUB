@@ -306,7 +306,7 @@
 <script>
   // Fit: the square shrinks on short screens so the turned triangle (402 tall) never meets the style picker.
   const stage = document.querySelector('.stage'), fig = document.querySelector('.figure');
-  var sFit = 1, bandT = 1, bandB = 514, bandTop = 237, fitN = 0;   // set by fit (declared first: fit runs right away)
+  var sFit = 1, bandT = 1, bandB = 514, bandTop = 237, topDy = 0, fitN = 0;   // set by fit (declared first: fit runs right away)
   // piecewise-linear through Figma's frames: [frame height, value] at 640 (iPhone SE class), 874 (iPhone 17), 1000
   const lerpH = (pts, h) => { const i = h < pts[1][0] ? 0 : 1, [x0, y0] = pts[i], [x1, y1] = pts[i + 1];
                               return y0 + (y1 - y0) * (h - x0) / (x1 - x0); };
@@ -315,11 +315,14 @@
           bot = parseFloat(cs.getPropertyValue('--bottom')) || 0, H = stage.clientHeight;
     // the other screens' square shrinks to fit short or narrow screens; the Sequencer's band never scales (topSplit
     // eases the scale to 1 as it arrives: Figma's 320 px frame lets its 342 px octagon run past the screen's edges)
-    sFit = Math.max(0.4, Math.min(1, stage.clientWidth / 402, (H / 2 - 232 - top) / 201));
     // the band's top and bottom on the screen (Figma: 183–526 at 640 tall, 237–750 at 874, 265–876 at 1000), below
     // the safe areas, taken into the unscaled figure's units (its centre sits mid-screen)
     const h = Math.min(1400, H - top - bot);
     bandTop = top + lerpH([[640, 183], [874, 237], [1000, 265]], h);
+    // the style names sit 41 px above the band on every screen, so they never jump between steps (Darius); the
+    // whole top block (icon, names, sound strip) moves with them
+    topDy = bandTop - top - 41 - 196;
+    sFit = Math.max(0.4, Math.min(1, stage.clientWidth / 402, (H / 2 - 232 - topDy - top) / 201));
     bandT = bandTop - H / 2 + 201;
     bandB = top + lerpH([[640, 526], [874, 750], [1000, 876]], h) - H / 2 + 201;
     fitN++;
@@ -1433,9 +1436,9 @@
     // the style strip narrows to 130 px left of centre, 48 px from the sound strip (Figma, every screen size)
     swEl.style.left = pkEl.style.left = `calc((50% - 154px) * ${k.toFixed(4)})`;
     swEl.style.right = pkEl.style.right = `calc((50% + 24px) * ${k.toFixed(4)})`;
-    // the strips ride 41 px above the band (lower on tall screens, higher on short ones), the icon 40 px above them
-    // and never below its usual 156 (Figma 320 × 640, 402 × 874, 874 × 1000)
-    const top = parseFloat(getComputedStyle(stage).getPropertyValue('--top')) || 0, dy = (bandTop - top - 41 - 196) * k;
+    // the strips sit 41 px above the band's place (lower on tall screens, higher on short ones) on every step, the
+    // icon 40 px above them and never below its usual 156 (Figma 320 × 640, 402 × 874, 874 × 1000)
+    const dy = topDy;
     swEl.style.top = `calc(${(196 + dy).toFixed(2)}px + var(--top))`; pkEl.style.top = `calc(${(176 + dy).toFixed(2)}px + var(--top))`;
     tonesEl.style.top = `calc(${(196 + dy).toFixed(2)}px + var(--top))`; tpick.style.top = `calc(${(176 + dy).toFixed(2)}px + var(--top))`;
     icEl.style.top = `calc(${(156 + Math.min(0, dy)).toFixed(2)}px + var(--top))`;
