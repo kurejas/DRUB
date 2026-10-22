@@ -1557,7 +1557,7 @@
   const filtEl = document.querySelector('.filt');
   const filtDots = [];
   [8, 6, 4, 2, 1].forEach((d, col) => { for (let row = 0; row < 5; row++) (() => {
-    const L = { '2,0': 'R', '0,2': 'L', '4,2': 'H', '2,4': 'X' }[col + ',' + row];
+    const L = { '2,0': 'R', '0,2': 'L', '4,2': 'H' }[col + ',' + row];   // no X: a dot below (Darius)
     const x = FX0 + col * 70, y = FX0 + row * 70;
     if (L) {
       const p = document.createElement('p'); p.className = 't'; p.textContent = L;
