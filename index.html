@@ -1398,7 +1398,7 @@
   const seqEl = document.querySelector('.seq');
   // columns, left to right D S | H M (Darius): the drums' backbone, the knob's track, then hat and melody, low to high.
   // Indexed by line: 0 M (melody), 1 D (the kick), 2 S, 3 H
-  const SEQ_X = [310, 92, 148, 254], SEQ_L = ['M', 'D', 'S', 'H'];   // Figma's updated lane spacing (56 px)
+  const SEQ_X = [316.5, 85.5, 144.8, 257.5], SEQ_L = ['M', 'D', 'S', 'H'];   // Figma 56:4032: pairs 59 px apart, 113 across the track
   // first row to last: Figma 308 … 719 (411 px), stretched with the band on tall screens
   const seqTop0 = () => bandT + 71, seqSpan = () => bandB - bandT - 102;
   const seqRowY = i => seqTop0() + i * seqSpan() / 31;
