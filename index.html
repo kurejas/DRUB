@@ -2,13 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#FFFFFF">
 <!-- home-screen app: square, full-bleed artwork (the phone rounds or masks the corners itself) -->
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">   <!-- Figma 56:3367 "Favicon", exported at 2x -->
 <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<!-- from the home screen the page runs up under the status bar (no white band above it); --top keeps the corners clear -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="DRUB">
 <meta name="application-name" content="DRUB">
@@ -53,7 +55,7 @@
   html.f-inter { --font: "Inter", sans-serif; } html.f-intertight { --font: "Inter Tight", sans-serif; }
 
   html.dark { --ink: #FFFFFF; --paper: #000000; }   /* step 2 and on: the page turns black */
-  html, body { margin: 0; height: 100%; background: var(--paper); overflow: hidden; overscroll-behavior: none;
+  html, body { margin: 0; height: 100%; background: var(--paper); overflow: hidden; overscroll-behavior: none; touch-action: manipulation;
 }
   body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
          color: var(--ink); font-family: var(--font); -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
@@ -94,17 +96,18 @@
      move with the loop: the woofer with the kick, the tweeter with the snare and hat. The guitar follows the melody
      line: each note strums it (it tips 4° round its body, 5.75° on the bar's first beat, more for a chord) and pops one of its
      three white details by pitch (a chord pops all three). */
-  .icon { position: absolute; left: 50%; top: calc(156px + var(--top)); transform: translate(-50%, -50%); }
+  .icon { position: absolute; left: 50%; top: calc(156px + var(--top)); transform: translate(-50%, -50%); z-index: 2; }   /* above the figure's square on short screens */
   .kit { width: 64px; height: 64px; padding: 0; border: 0; background: none; cursor: pointer; display: grid; place-items: center;
          -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
   .kit > * { grid-area: 1 / 1; display: block; }
-  .kit .speaker { overflow: visible; filter: invert(1); }   /* its asset is drawn for the black page: a white body with
-                                                              black cones; flipped on the white page */
-  html.dark .kit .speaker { filter: none; }
+  /* drawn white and blended by difference, like the style names: black on the white page, white on the black one, and
+     still visible where a shape reaches up behind it on short screens. The speaker's asset is already white (black cones) */
+  .kit { mix-blend-mode: difference; }
+  .kit .speaker { overflow: visible; }
   .kit .guitar { overflow: visible; } .kit .gt { transform-origin: 6px 19px; }   /* tips round its body */
   .kit .tw { transform-origin: 8.624px 5.958px; } .kit .wf { transform-origin: 8.624px 14.683px; }
   .kit:not(.synth) .speaker, .kit.synth .guitar { visibility: hidden; }
-  html.dark .face, html.dark .kit .guitar { filter: invert(1); }   /* the black SF Symbols turn white on the black page */
+  html.dark .face, .kit .guitar { filter: invert(1); }   /* the black SF Symbols turn white on the black page */
 
   /* Style picker: the names on one line, the chosen one centred and set wide in the middle (width 150, 25 narrower
      per letter outward), its neighbours showing the three letters nearest it (40, 35, 30 outward) and fading out.
@@ -306,15 +309,18 @@
 <script>
   // Fit: the square shrinks on short screens so the turned triangle (402 tall) never meets the style picker.
   const stage = document.querySelector('.stage'), fig = document.querySelector('.figure');
-  var sFit = 1, bandT = 1, bandB = 514, bandTop = 237, topDy = 0, fitN = 0;   // set by fit (declared first: fit runs right away)
+  var midUndo = null;                                          // set by a press in the middle, undone if it was a swipe
+  // no zooming on phones: double-tap is off via touch-action, pinch is stopped here (Safari ignores user-scalable=no)
+  for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
+  document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+  document.addEventListener('dblclick', e => e.preventDefault(), { passive: false });
+  var sFit = 1, bassHalf = 134, bandT = 1, bandB = 514, bandTop = 237, topDy = 0, fitN = 0;   // set by fit (declared first: fit runs right away)
   // piecewise-linear through Figma's frames: [frame height, value] at 640 (iPhone SE class), 874 (iPhone 17), 1000
   const lerpH = (pts, h) => { const i = h < pts[1][0] ? 0 : 1, [x0, y0] = pts[i], [x1, y1] = pts[i + 1];
                               return y0 + (y1 - y0) * (h - x0) / (x1 - x0); };
   function fit() {
     const cs = getComputedStyle(stage), top = parseFloat(cs.getPropertyValue('--top')) || 0,
           bot = parseFloat(cs.getPropertyValue('--bottom')) || 0, H = stage.clientHeight;
-    // the other screens' square shrinks to fit short or narrow screens; the Sequencer's band never scales (topSplit
-    // eases the scale to 1 as it arrives: Figma's 320 px frame lets its 342 px octagon run past the screen's edges)
     // the band's top and bottom on the screen (Figma: 183–526 at 640 tall, 237–750 at 874, 265–876 at 1000), below
     // the safe areas, taken into the unscaled figure's units (its centre sits mid-screen)
     const h = Math.min(1400, H - top - bot);
@@ -322,7 +328,10 @@
     // the style names sit 41 px above the band on every screen, so they never jump between steps (Darius); the
     // whole top block (icon, names, sound strip) moves with them
     topDy = bandTop - top - 41 - 196;
-    sFit = Math.max(0.4, Math.min(1, stage.clientWidth / 402, (H / 2 - 232 - topDy - top) / 201));
+    // nothing scales (Darius, Figma's 320 × 640 frames): the shapes keep their size, centred, and run past the screen's
+    // edges where they must; only the Bass pill gets shorter (294 px tall at 640, 402 at 874), keeping its 134 px width
+    sFit = 1;
+    bassHalf = Math.max(50, Math.min(134, lerpH([[640, 80.2], [874, 134], [1000, 134]], h)));
     bandT = bandTop - H / 2 + 201;
     bandB = top + lerpH([[640, 526], [874, 750], [1000, 876]], h) - H / 2 + 201;
     fitN++;
@@ -657,7 +666,12 @@
       const dd = Math.hypot(x - d.el.dataset.x, y - d.el.dataset.y);
       if (dd <= bd) { bd = dd; best = d; }
     }
-    if (best) { loop[best.lane][best.st % len] = 0; removed.set(best.lane + ':' + (best.st % len), now()); unsoundStep(best.lane, best.st % len); return; }
+    if (best) {
+      const ln = best.lane, st = best.st % len;
+      loop[ln][st] = 0; removed.set(ln + ':' + st, now()); unsoundStep(ln, st);
+      midUndo = () => { loop[ln][st] = 1; removed.delete(ln + ':' + st); resync(); };   // it was a swipe after all
+      return;
+    }
     hit(Math.abs(x) <= 22 && Math.abs(y) <= 22 ? 3 : y < 0 ? 1 : 2, now());
     const h = { id: e.pointerId, x: e.clientX, y: e.clientY };
     h.timer = setTimeout(() => { if (hold === h) { clearLoop(now()); hold = null; } }, 700);
@@ -1039,7 +1053,7 @@
   // how far a ray from the centre runs to the pill's edge: a capsule of radius 67 round the segment y −134 … +134,
   // each end pushed out by the bass knob's overdrag (ext: [top, bottom] in px)
   function capsuleR(dx, dy, ext) {
-    const y0 = -134 - ext[0], y1 = 134 + ext[1];
+    const y0 = -bassHalf - ext[0], y1 = bassHalf + ext[1];
     if (Math.abs(dx) > 1e-6) { const t = 67 / Math.abs(dx), y = dy * t; if (y >= y0 && y <= y1) return t; }
     const cy = dy < 0 ? y0 : y1, b = dy * cy, disc = b * b - cy * cy + 67 * 67;
     return b + Math.sqrt(Math.max(0, disc));
@@ -1262,8 +1276,9 @@
   const BASS_TONES = ['ACID', 'SUB', 'GROWL'];
   const bassTone = STYLES.map(st => SOUND[st.name].tones.bass);     // each style keeps its own bass sound, as in v1
   const PCN = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
-  const noteY = v => 335 - v * 26.8;                         // note 0 at the bottom end's centre, 10 at the top's
-  const bassRaw = y => (335 - y) / 26.8;
+  // note 0 at the bottom end's centre, 10 at the top's (26.8 px apart on an iPhone 17; closer on short screens)
+  const noteY = v => 201 + bassHalf - v * bassHalf / 5;
+  const bassRaw = y => (201 + bassHalf - y) / (bassHalf / 5);
   const midiOf = i => 33 + rootSemi(key.root) + SCALES[key.scale][mod(i, 5)] + 12 * Math.floor(i / 5);
   const noteLabel = i => {
     const m = midiOf(i), n = PCN[mod(m, 12)];
@@ -1334,7 +1349,7 @@
     const dist = 0.25 + 0.75 * Math.min(1.25, Math.abs(bassShown(t) - 5) / 5), m = bassMeter();
     return Math.min(10, held * 8 * dist * (0.4 + 0.6 * m.lv) * m.flick);   // never past 10 px
   }
-  const bassExt = t => { const v = bassShown(t); return [v > 10 ? (v - 10) * 26.8 : 0, v < 0 ? -v * 26.8 : 0]; };
+  const bassExt = t => { const v = bassShown(t); return [v > 10 ? (v - 10) * bassHalf / 5 : 0, v < 0 ? -v * bassHalf / 5 : 0]; };
   const bassNote = [-1, -1];
   const bassSend = evs => { if (AU.ready && AU.anchored) post(snd().synth, evs); };
   function bassDown(raw, voice, t) {
@@ -1486,10 +1501,13 @@
     if (bandA < 0.9) return;
     const r = fig.getBoundingClientRect(), sc = r.width / 402, x = (e.clientX - r.left) / sc, y = (e.clientY - r.top) / sc;
     const lane = SEQ_X.findIndex(lx => Math.abs(x - lx) < 26); if (lane < 0) return;
-    if (y < seqTop0() - 16) { muted[lane] = !muted[lane]; tick(muted[lane] ? 420 : 640, 0.45); resync(); return; }   // a letter: mute / unmute
+    if (y < seqTop0() - 16) {                                                       // a letter: mute / unmute
+      muted[lane] = !muted[lane]; tick(muted[lane] ? 420 : 640, 0.45); resync();
+      midUndo = () => { muted[lane] = !muted[lane]; resync(); }; return;
+    }
     const i = Math.round((y - seqTop0()) / (seqSpan() / 31)); if (i < 0 || i > 31) return;
     const sy = snd(), arr = lane === 0 ? sy.m : loops[shown][lane], k = i % arr.length;
-    arr[k] = arr[k] ? 0 : 1;
+    arr[k] = arr[k] ? 0 : 1; midUndo = () => { arr[k] = arr[k] ? 0 : 1; resync(); };
     if (arr[k] && AU.ready && AU.anchored) post(sy.synth, laneEvents(lane, k, sy, 0.4).map(ev => [ev[0], now(), ev[1], ev[2], 0]));
     else tick(330, 0.6);
     resync();
@@ -1659,6 +1677,7 @@
     }
     filt.lastTap = { t, x: e.clientX, y: e.clientY };
     filt.glide = null; filt.ptr = e.pointerId; filtEl.setPointerCapture(e.pointerId);
+    const x0 = filt.x, y0 = filt.y; midUndo = () => { filt.x = x0; filt.y = y0; filt.ptr = null; filt.lastTap = null; };
     Object.assign(filt, filtNorm(e));
   });
   filtEl.addEventListener('pointermove', e => { if (e.pointerId === filt.ptr) Object.assign(filt, filtNorm(e)); });
@@ -1781,6 +1800,19 @@
   });
   let swipe = null;
   stage.addEventListener('pointerdown', e => { if (e.target === stage) swipe = { x: e.clientX, y: e.clientY }; });
+  // a quick sideways flick over the middle (the shape and its controls) changes screen too; whatever the touch did there
+  // on the way down (a step toggled, the filter knob moved, a dot taken out) is put back (midUndo)
+  let midSwipe = null;
+  stage.addEventListener('pointerdown', e => {
+    midUndo = null; midSwipe = fig.contains(e.target) ? { id: e.pointerId, x: e.clientX, y: e.clientY, t: now() } : null;
+  }, true);
+  stage.addEventListener('pointerup', e => {
+    const m = midSwipe; if (!m || e.pointerId !== m.id) return; midSwipe = null;
+    const dx = e.clientX - m.x, dy = e.clientY - m.y;
+    if (now() - m.t < 0.45 && Math.abs(dx) > 50 && Math.abs(dx) > 2 * Math.abs(dy)) {
+      if (midUndo) midUndo(); midUndo = null; stepMode(dx < 0 ? 1 : -1);
+    }
+  });
   stage.addEventListener('pointerup', e => {
     if (!swipe) return; const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y; swipe = null;
     if (Math.abs(dx) > 40 && Math.abs(dx) > 1.5 * Math.abs(dy)) stepMode(dx < 0 ? 1 : -1);
