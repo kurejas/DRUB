@@ -86,10 +86,10 @@
   }
 
   /* top corners */
-  .logo { position: absolute; left: 40px; top: calc(40px + var(--top)); width: 24px; height: 24px; mix-blend-mode: luminosity;
+  .logo { position: absolute; left: 40px; top: calc(40px + var(--top)); width: 24px; height: 24px;
           cursor: pointer; z-index: 3; }
   .logo::before { content: ''; position: absolute; inset: -12px; }   /* a 48 px tap zone round the 24 px mark */
-  .logo img { position: absolute; width: 14px; height: 14px; mix-blend-mode: difference; }
+  .logo svg { display: block; }
   .help { top: calc(43.5px + var(--top)); right: 49.5px; transform: translateX(50%); font-size: 24px; }
   /* help is off by default: the ? as a 1 px outline, no fill (Figma 42:2930, inside border); filled once help exists */
   .help:not(.on) { color: transparent; -webkit-text-stroke: 1px var(--ink); }
@@ -280,9 +280,16 @@
 <body>
 <main class="stage" data-mode="0" aria-label="One Shape">
   <div class="logo" role="button" tabindex="0" aria-label="Page colours: alternating. Tap to change">
-    <img src="assets/logo-dot-1.svg" alt="" style="left: 5px; top: 0">
-    <img src="assets/logo-dot-2.svg" alt="" style="left: 0; top: 10px">
-    <img src="assets/logo-dot-3.svg" alt="" style="left: 10px; top: 10px">
+    <!-- Figma 56:3349's red, green and blue dots, blended (difference, then luminosity) to greys; drawn here as those
+         greys directly, since iPhone Safari leaves the colours showing through the blend -->
+    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+      <defs><clipPath id="lgA"><circle cx="12" cy="7" r="7"/></clipPath><clipPath id="lgC"><circle cx="17" cy="17" r="7"/></clipPath></defs>
+      <circle cx="12" cy="7" r="7" fill="#4d4d4d"/><circle cx="7" cy="17" r="7" fill="#969696"/><circle cx="17" cy="17" r="7" fill="#1c1c1c"/>
+      <circle cx="7" cy="17" r="7" fill="#e3e3e3" clip-path="url(#lgA)"/>
+      <circle cx="17" cy="17" r="7" fill="#696969" clip-path="url(#lgA)"/>
+      <circle cx="7" cy="17" r="7" fill="#b3b3b3" clip-path="url(#lgC)"/>
+      <g clip-path="url(#lgA)"><circle cx="7" cy="17" r="7" fill="#fff" clip-path="url(#lgC)"/></g>
+    </svg>
   </div>
   <p class="t help" aria-label="Help">?</p>
 
