@@ -89,6 +89,8 @@
   .logo::before { content: ''; position: absolute; inset: -12px; }   /* a 48 px tap zone round the 24 px mark */
   .logo img { position: absolute; width: 14px; height: 14px; mix-blend-mode: difference; }
   .help { top: calc(43.5px + var(--top)); right: 49.5px; transform: translateX(50%); font-size: 24px; }
+  /* help is off by default: the ? as a 1 px outline, no fill (Figma 42:2930, inside border); filled once help exists */
+  .help:not(.on) { color: transparent; -webkit-text-stroke: 1px var(--ink); }
 
   /* the style picker: its instrument, then the name between the fading neighbours */
   /* The sound-source switch: guitar = ACOUSTIC (the recordings), speaker = SYNTH, as v1's SYNTH/ACOUSTIC switch. It
