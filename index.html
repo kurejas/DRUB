@@ -97,8 +97,10 @@
      axis, narrow to wide, and fold back when help goes off; in the Sequencer's tight columns they stay narrower */
   /* each word is set like the style names: widest in the middle (150), 25 narrower per letter outward (helpWord) */
   @property --lw { syntax: '<number>'; inherits: false; initial-value: 150; }
-  .t .more { display: inline-block; max-width: 0; overflow: hidden; vertical-align: top; white-space: nowrap;
-             transition: max-width 0.32s ease; }
+  /* clipped at the sides only (clip-path, not overflow: an overflow box sits on its bottom edge, which lifted the
+     initial in Safari and cut the letters' tops and bottoms on iPhone) */
+  .t .more { display: inline-block; max-width: 0; vertical-align: baseline; white-space: nowrap;
+             clip-path: inset(-0.5em 0 -0.5em 0); transition: max-width 0.32s ease; }
   .t .hl { font-variation-settings: "wdth" var(--lw), "opsz" 28; transition: --lw 0.32s ease; }
   .t .more .hl { --lw: 50; }
   html.helpon .t .more { max-width: 12em; }
@@ -847,7 +849,7 @@
     try {
       await AU.ctx.audioWorklet.addModule('audio/synth-v1.js?' + SYNTH_V);   // versioned, so a browser never runs a stale copy
       await AU.ctx.audioWorklet.addModule('audio/synth-v2.js?' + SYNTH_V);
-    } catch (err) { console.warn('audio engine failed to load', err); return; }
+    } catch (err) { AU.failed = true; console.warn('audio engine failed to load', err); return; }   // e.g. plain http: no worklets
     for (const v of [1, 2]) {
       const n = AU.node[v] = new AudioWorkletNode(AU.ctx, v === 1 ? 'synth' : 'synth2', { numberOfInputs: 0, outputChannelCount: [2] });
       n.connect(AU.ctx.destination);
@@ -1787,7 +1789,8 @@
   fig.addEventListener('pointerdown', e => {
     if (mode !== 5 || tapeA < 0.9) return;
     const r = fig.getBoundingClientRect(), y = (e.clientY - r.top) / (r.width / 402);
-    if (!playing) { if (Math.abs(y - tapeC()) < Math.min(322, 2 * FH) / 2 + 10) { if (waitStart) waitStart = 0; else start(); } return; }
+    // stopped: a tap starts the music, and the blocks open at once, even while the sound engine wakes up
+    if (!playing) { if (Math.abs(y - tapeC()) < Math.min(322, 2 * FH) / 2 + 10 && !waitStart) { setIdle(0, now()); start(); } return; }
     if (Math.abs(y - tapeC()) > tapeH(now()) / 2 + 10) return;
     tapePtr = e.pointerId; fig.setPointerCapture(e.pointerId); tapeDown(now());
   });
@@ -1852,7 +1855,9 @@
   // the first beat waits for the sound: the clock starts once the audio is running (a few ms once preloaded), or after
   // 1.2 s regardless (no audio, or blocked), so beat 1's sound and picture land together
   let waitStart = 0;
-  const audioOk = () => MUTE || (AU.ready && AU.ctx && AU.ctx.state === 'running' && AU.anchored);
+  // ready to play in time; or no engine at all (it failed to load, or no AudioContext), when waiting would only delay
+  const audioOk = () => MUTE || AU.failed || !(window.AudioContext || window.webkitAudioContext) ||
+    (AU.ready && AU.ctx && AU.ctx.state === 'running' && AU.anchored);
   function start() {
     if (playing) return;
     audioStart();
@@ -1919,6 +1924,7 @@
     if (!still || lastPos === null) { rhyme(t); bars(t); }
     pump(); filtSend(t);
     if (waitStart && (audioOk() || t - waitStart > 1.2)) { waitStart = 0; doStart(); }   // the sound is ready: go
+    if (!playing && !waitStart && idleAnim.to === 0) setIdle(1, t);   // a start that never came: the blocks wind back down
     if (!still) { if (kitNow()) guitarRender(t); else speakerRender(t); }
     keyRender(still ? t + 9 : t);
     shapeRender(t);
