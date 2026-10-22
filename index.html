@@ -159,8 +159,8 @@
   .bass { position: absolute; inset: 0; color: var(--paper); touch-action: none; }
   .stage:not([data-mode="3"]) .bass { pointer-events: none; }
   /* the note column (Figma "iPhone 17 - 37" at rest, "- 41" pushed to the top): a dot level with each note the knob can
-     land on, 53 px left of it; 2 px at rest, swelling toward the knob (12 px beside it, 1 px less per note away) as it
-     is pushed off the middle */
+     land on, 53 px left of it; 2 px at rest, swelling toward the knob (12 px beside it, down to 0.5 px at the far end)
+     as soon as it is pushed off the middle */
   .bass .bar { position: absolute; left: 148px; border-radius: 50%; background: var(--paper); transform: translate(-50%, -50%); }
   .bass .tick { position: absolute; left: 146px; height: 1.5px; margin-top: -0.75px; background: #fff; }
   .bass .t { font-size: 11px; }
@@ -1410,9 +1410,11 @@
     const lbl = noteLabel(Math.round(Math.max(0, Math.min(10, v))));
     if (noteEl.innerHTML !== lbl) noteEl.innerHTML = lbl;
     noteEl.style.top = noteY(v).toFixed(1) + 'px';
-    const amp = Math.min(1, Math.abs(v - 5) / 5);
+    // full swell within a note of the middle (Figma 67:2831 / E3): 12 px beside the knob, falling evenly to 0.5 px at the
+    // far end of the column, whichever end that is
+    const amp = Math.min(1, Math.abs(v - 5)), far = Math.max(v, 10 - v, 1);
     bassBars.forEach((el, n) => {
-      const d = 2 + (Math.max(0.5, 12 - Math.abs(n - v)) - 2) * amp;
+      const d = 2 + (Math.max(0.5, 12 - 11.5 * Math.abs(n - v) / far) - 2) * amp;
       el.style.top = noteY(n).toFixed(1) + 'px'; el.style.width = el.style.height = d.toFixed(2) + 'px';
     });
     // the second finger: a 16 px dot on the line, its note on the left; it shrinks away when let go
