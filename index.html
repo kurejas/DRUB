@@ -62,7 +62,9 @@
      frame's, measured from the edge each element is pinned to: the top block from the top, the bar from the bottom,
      the shape from the middle. */
   .stage {
-    position: relative; margin: 0 auto; width: min(100vw, 430px); height: 100dvh; min-height: 560px;
+    /* full width (Figma's 874 × 1000 frames): the corner controls sit 40 px in from the window's corners on any screen;
+       the figure, the names and the mode dots stay centred, and nothing scales up */
+    position: relative; margin: 0 auto; width: 100%; height: 100dvh; min-height: 560px;
     --top: max(0px, env(safe-area-inset-top) - 20px);
     --bottom: max(0px, env(safe-area-inset-bottom) - 20px);
   }
@@ -176,7 +178,7 @@
   /* X is now plain, like R, L and H (Darius: no outline) */
   /* Sequencer (Figma "iPhone 17 - 29", 56:4032): a full-width black band (y 1 … 514 of the figure), five columns: D
      (the kick), S, a thin track the knob rides down, H, M (melody). All 32 steps on screen, no 1 / 2 pages
-     (Darius): rows 72 … 483, 13.3 px apart. While it plays: a comet tail behind the playhead, and each line's column shivers
+     (Darius): rows 72 … 483, 13.3 px apart (more on tall screens). The band is an octagon (Figma's update). While it plays: a comet tail behind the playhead, and each line's column shivers
      when it plays; the band itself keeps still. On: 8 px (Darius; Figma had 12); off: a 2 px speck. A muted line goes to outline (Figma's D), its specks unchanged.
      v1's Sequencer: tap a step to toggle it, tap a letter to mute its line. Up top the style picker moves to the left
      half and the melody's sound picker takes the right (PLUCK …). */
@@ -188,9 +190,9 @@
   /* a muted line (Figma's "D" frame shows one): its letter and its steps in outline; its specks unchanged */
   .seq .t.mute { color: var(--ink); -webkit-text-stroke: 2px var(--paper); paint-order: stroke fill; }
   /* (the split itself glides with the band: see topSplit) */
-  .tones { position: absolute; left: 50%; right: 0; top: calc(196px + var(--top)); height: 12px; z-index: 1; mix-blend-mode: difference; }
+  .tones { position: absolute; left: 50%; right: calc(50% - 201px); top: calc(196px + var(--top)); height: 12px; z-index: 1; mix-blend-mode: difference; }
   .tones .t { top: 0; font-size: 16px; color: #fff; }
-  .tpick { position: absolute; left: 50%; right: 0; top: calc(176px + var(--top)); height: 56px; z-index: 2; cursor: ew-resize; touch-action: pan-y; }
+  .tpick { position: absolute; left: 50%; right: calc(50% - 201px); top: calc(176px + var(--top)); height: 56px; z-index: 2; cursor: ew-resize; touch-action: pan-y; }
   .tones { opacity: 0; } .tpick { pointer-events: none; }
   .pad { position: absolute; left: 40px; top: 40px; width: 322px; height: 322px; touch-action: none; cursor: pointer; }
   .stage:not([data-mode="1"]) .pad { pointer-events: none; }
@@ -302,10 +304,14 @@
 <script>
   // Fit: the square shrinks on short screens so the turned triangle (402 tall) never meets the style picker.
   const stage = document.querySelector('.stage'), fig = document.querySelector('.figure');
+  var seqExt = 0, wideTop = false;                            // set by fit (declared first: fit runs right away)
   function fit() {
     const top = parseFloat(getComputedStyle(stage).getPropertyValue('--top')) || 0;
     const s = Math.min(1, stage.clientWidth / 402, (stage.clientHeight / 2 - 232 - top) / 201);
     fig.style.setProperty('--s', Math.max(0.4, s).toFixed(4));
+    // the Sequencer's band grows on taller screens (Figma: 513 px at 874 tall, 611 at 1000), in the figure's units
+    seqExt = Math.max(0, Math.min(300, stage.clientHeight / Math.max(0.4, s) - 874));
+    wideTop = innerWidth > 600;                               // (the stage itself is a 402 px column)
   }
   addEventListener('resize', () => { fit(); lastPos = null; }); fit();
 
@@ -1004,7 +1010,7 @@
   const SPIN = MORPH === 2 ? 360 : 0;
   let morph = 0, morphAnim = null, spin = 0;                   // morph: 0 triangle … 1 circle; spin: extra degrees
   let pill = 0, pillAnim = null;                              // pill: 0 the circle … 1 the Bass pill (134 × 402)
-  let bandA = 0, bandAnim = null;                             // bandA: 0 … 1 the Sequencer band (402 wide, y 1 … 544)
+  let bandA = 0, bandAnim = null, OCT = [];                             // bandA: 0 … 1 the Sequencer band (402 wide, y 1 … 544)
   let sqA = 0, sqAnim = null;                                 // sqA: 0 … 1 the Filter square (402 × 402, square corners)
   let tapeA = 0, tapeAnim = null;                             // tapeA: 0 … 1 the Tape stop band (402 wide, its middle open)
   // Tape stop (Figma "iPhone 17 - 25" 10:762 at rest, "- 31" 42:3306 held): two 134 px blocks against the screen edges,
@@ -1052,7 +1058,10 @@
       if (u > 1) { tapeA = tapeAnim.to; tapeAnim = null; }
     }
     const ext = bassExt(t), th = tapeH(t);
-    const bandSw = 0;                                         // the band keeps still (Darius: no breathing)
+    // the Sequencer's band (Figma "iPhone 17 - 29", updated): an octagon 342 wide (x 30 … 372), corners cut 30 px, from
+    // the figure's top to y 514, taller on tall screens (seqExt: a third above, two thirds below)
+    const bT = 1 - 0.36 * seqExt, bB = 514 + 0.64 * seqExt;
+    OCT = [[60, bT], [342, bT], [372, bT + 30], [372, bB - 30], [342, bB], [60, bB], [30, bB - 30], [30, bT + 30]];
     const V = triVerts(spin);
     const collapse = MORPH === 3;
     const rho = 108 * smooth(morph / (collapse ? 0.45 : 0.6)); // corners round first (up to near the 116 px inradius) …
@@ -1063,7 +1072,7 @@
     for (let i = 0; i < RAYS; i++) angs.push(i * 2 * Math.PI / RAYS);
     if (rho < 0.01) for (const [vx, vy] of V) angs.push(mod(Math.atan2(vx - cx, -(vy - cy)), 2 * Math.PI));   // sharp corners stay sharp
     if (sqA > 0.001) for (const c of [1, 3, 5, 7]) angs.push(c * Math.PI / 4);   // its corners stay sharp
-    if (bandA > 0.001) for (const [x, y] of [[201, -200 - bandSw], [201, 313 + bandSw], [-201, 313 + bandSw], [-201, -200 - bandSw]]) angs.push(mod(Math.atan2(x, -y), 2 * Math.PI));
+    if (bandA > 0.001) for (const [x, y] of OCT) angs.push(mod(Math.atan2(x - 201, -(y - 201)), 2 * Math.PI));   // its corners stay sharp
     if (tapeA > 0.001) { const hh = tapeH(t) / 2; for (const [sx, sy] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) angs.push(mod(Math.atan2(sx * 201, -sy * hh), 2 * Math.PI)); }
     angs.sort((a, b) => a - b);
     let d = '';
@@ -1072,7 +1081,7 @@
       let rr = (r + (161 - r) * w) * k;
       if (pill > 0.001) rr += (capsuleR(dx, dy, ext) - rr) * pill;   // the circle stretches to the pill
       if (sqA > 0.001) rr += (201 / Math.max(Math.abs(dx), Math.abs(dy)) - rr) * sqA;   // … or the filter square
-      if (bandA > 0.001) rr += (Math.min(201 / Math.max(1e-6, Math.abs(dx)), (dy < 0 ? 200 + bandSw : 313 + bandSw) / Math.max(1e-6, Math.abs(dy))) - rr) * bandA;   // … or the band (y 1 … 514)
+      if (bandA > 0.001) rr += (rayHit(201, 201, dx, dy, OCT) - rr) * bandA;   // … or the band, an octagon
       if (tapeA > 0.001) rr += (Math.min(201 / Math.max(1e-6, Math.abs(dx)), th / 2 / Math.max(1e-6, Math.abs(dy))) - rr) * tapeA;   // … or the band
       d += (d ? 'L' : 'M') + (cx + dx * rr).toFixed(2) + ' ' + (cy + dy * rr).toFixed(2);
     }
@@ -1378,9 +1387,10 @@
   const seqEl = document.querySelector('.seq');
   // columns, left to right D S | H M (Darius): the drums' backbone, the knob's track, then hat and melody, low to high.
   // Indexed by line: 0 M (melody), 1 D (the kick), 2 S, 3 H
-  const SEQ_X = [338, 64, 135, 267], SEQ_L = ['M', 'D', 'S', 'H'];
-  const SEQ_SPAN = 411;                                      // first row to last (Figma: 308 … 719, the band ends 30 px above the tempo)
-  const seqRowY = i => 72 + i * SEQ_SPAN / 31;
+  const SEQ_X = [310, 92, 148, 254], SEQ_L = ['M', 'D', 'S', 'H'];   // Figma's updated lane spacing (56 px)
+  // first row to last: Figma 308 … 719 (411 px), stretched with the band on tall screens
+  const seqTop0 = () => 72 - 0.36 * seqExt, seqSpan = () => 411 + seqExt;
+  const seqRowY = i => seqTop0() + i * seqSpan() / 31;
   const seqDots = [[], [], [], []], seqHead = [], seqGhost = [[], [], [], []];
   SEQ_X.forEach((x, lane) => {
     const h = document.createElement('p'); h.className = 't'; h.textContent = SEQ_L[lane];
@@ -1403,12 +1413,16 @@
   // Figma), the sound strip slides
   // in from the right and fades up; back again on the way out (driven by bandA, so it moves with the shape)
   const swEl = document.querySelector('.switch'), pkEl = document.querySelector('.picker'), icEl = document.querySelector('.kit');
-  let lastSplit = -1;
+  let lastSplit = -1, lastWide = null;
   function topSplit() {
     const k = Math.max(0, Math.min(1, bandA));
-    if (Math.abs(k - lastSplit) < 1e-4) return;
-    lastSplit = k;
-    swEl.style.right = pkEl.style.right = (50 * k).toFixed(3) + '%';
+    if (Math.abs(k - lastSplit) < 1e-4 && wideTop === lastWide) return;
+    lastSplit = k; lastWide = wideTop;
+    // the style strip narrows to the left half of the centred 402 px column (on a phone: the left half of the screen)
+    swEl.style.left = pkEl.style.left = `calc((50% - 201px) * ${k.toFixed(4)})`;
+    swEl.style.right = pkEl.style.right = `calc(50% * ${k.toFixed(4)})`;
+    // on wide screens the icon drops between the two strips (Figma 874 × 1000: centre y 219)
+    icEl.style.top = `calc(${(156 + (wideTop ? 63 * k : 0)).toFixed(2)}px + var(--top))`;
     tonesEl.style.opacity = Math.max(0, (k - 0.35) / 0.65).toFixed(3);
     tonesEl.style.transform = `translateX(${((1 - k) * 60).toFixed(1)}px)`;
     tpick.style.pointerEvents = k > 0.9 ? 'auto' : 'none';
@@ -1418,7 +1432,8 @@
   function seqRender(t) {
     const q = beats(t) * 4, n = Math.floor(q), cur = mod(n, 32), tau = (q - n) / (4 * seg.bps);
     const ky = kn ? kn.y : -99;                                 // the knob's own (sprung) height on the track
-    for (const m of seqMarks) m.el.style.opacity = Math.abs(m.y - ky) < 13 ? 0 : 1;
+    seqMarks.forEach((m, beat) => { m.y = seqRowY(Math.min(31, beat * 4)); m.el.style.top = (m.y - 1).toFixed(2) + 'px'; m.el.style.opacity = Math.abs(m.y - ky) < 13 ? 0 : 1; });
+    for (const h of seqHead) h.style.top = (seqTop0() - 34).toFixed(2) + 'px';
     for (let lane = 0; lane < 4; lane++) {
       seqHead[lane].classList.toggle('mute', muted[lane]);
       // the lane shake: when a line plays, its whole column shivers sideways, the kick most, the hat least
@@ -1450,8 +1465,8 @@
     if (bandA < 0.9) return;
     const r = fig.getBoundingClientRect(), sc = r.width / 402, x = (e.clientX - r.left) / sc, y = (e.clientY - r.top) / sc;
     const lane = SEQ_X.findIndex(lx => Math.abs(x - lx) < 26); if (lane < 0) return;
-    if (y < 56) { muted[lane] = !muted[lane]; tick(muted[lane] ? 420 : 640, 0.45); resync(); return; }   // a letter: mute / unmute
-    const i = Math.round((y - 72) / (SEQ_SPAN / 31)); if (i < 0 || i > 31) return;
+    if (y < seqTop0() - 16) { muted[lane] = !muted[lane]; tick(muted[lane] ? 420 : 640, 0.45); resync(); return; }   // a letter: mute / unmute
+    const i = Math.round((y - seqTop0()) / (seqSpan() / 31)); if (i < 0 || i > 31) return;
     const sy = snd(), arr = lane === 0 ? sy.m : loops[shown][lane], k = i % arr.length;
     arr[k] = arr[k] ? 0 : 1;
     if (arr[k] && AU.ready && AU.anchored) post(sy.synth, laneEvents(lane, k, sy, 0.4).map(ev => [ev[0], now(), ev[1], ev[2], 0]));
