@@ -1727,13 +1727,13 @@
       const ex = px + 0.6 * (px - gc), ey = py + 0.6 * (py - gm);             // the swell's centre, pushed outward
       const amp = Math.min(1, Math.hypot(px - gc, py - gm) / (110 * gk));
       const dist2 = (o.x - ex) * (o.x - ex) + (o.y - ey) * (o.y - ey);
-      // 1 px at rest; once off centre every dot is at least 2 px, so even the far corner stays visible; up to 20 px
+      // 2 px at rest (Darius: twice Figma's 1), and never smaller off centre, so even the far corner stays visible; up to 20 px
       // nearest the knob
       // … and the very furthest (about three, with the knob in a corner) fade away
       const far = Math.max(0, Math.min(1, (470 * gk - Math.sqrt(dist2)) / (50 * gk)));
-      const d = (1 + Math.min(1, amp * 4) + 18 * amp * Math.exp(-dist2 / (2 * 110 * 110 * gk * gk))) * far;
+      const d = (2 + 18 * amp * Math.exp(-dist2 / (2 * 110 * 110 * gk * gk))) * far;
       // a bare speck under the knob would read as a pinhole in it (Figma shows the knob whole); real dots still overlap
-      o.el.style.visibility = d < 2 && Math.hypot(o.x - px, o.y - py) < 12 ? 'hidden' : '';
+      o.el.style.visibility = d < 2.5 && Math.hypot(o.x - px, o.y - py) < 12 ? 'hidden' : '';
       o.el.style.width = o.el.style.height = d.toFixed(2) + 'px';
       o.el.style.left = (o.x - d / 2).toFixed(2) + 'px'; o.el.style.top = (o.y - d / 2).toFixed(2) + 'px';
     }
