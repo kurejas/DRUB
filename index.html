@@ -155,7 +155,7 @@
   .bubbles { position: absolute; inset: 0; transform-origin: 201px 201px; }
   /* the start screen (Figma "step 1." 42:3232): before the first tap only the knob is out, and START sits on the
      triangle's centre, 16 px, each letter narrower than the last; it pinches away on the tap and comes back on a stop */
-  .start { display: none; }                                  /* hidden for now (Darius); kept, with its code, for later */
+  html:not(.helpon) .start { display: none; }               /* only with help on (Darius); and only until the first play */
   .start { left: 201.5px; top: 201px; font-size: 16px; color: #fff; mix-blend-mode: difference; transform: translate(-50%, -50%);
            pointer-events: none; }
   .bub { position: absolute; top: 201px; left: 0; width: 24px; height: 24px; margin: -12px 0 0 -12px; border-radius: 50%;
@@ -447,6 +447,7 @@
   /* ---------- tempo: the beat clock keeps counting across tempo changes ---------- */
   // Nothing plays until the first tap or click on the triangle: until then the clock stands still at beat 0.
   let playing = false, playT = 0, firstPlayT = 0;             // firstPlayT: START shows only until this first play
+  const startX = () => document.documentElement.classList.contains('helpon') ? 72.6 : 201;   // where the knob waits
   let seg = { t0: now(), b0: 0, bps: STYLES[FIRST].bpm / 60 };
   // Tape stop (step 6, v1's): while held the clock winds down to a halt over TAPE_D seconds; let go, it waits and
   // comes back on the next downbeat of the grid it would have kept ("on the one"). tape: { ts, tr, tR } (v1's names)
@@ -603,7 +604,7 @@
       const d = (size(p, i) + (size(c, i) - size(p, i)) * k) * (i === 0 ? f : Math.min(1, f * 4));
       // they fly out from where the knob waits (the centre before the very first play), and on a pause back into the
       // knob wherever it stopped, and out from there again on the next play
-      const from = !firstPlayT || (playing && playT === firstPlayT) ? 201 : stopX;
+      const from = !firstPlayT || (playing && playT === firstPlayT) ? startX() : stopX;
       bb.style.transform = `translateX(${(from + (X[i] - from) * f).toFixed(2)}px) scale(${Math.max(0, d / 24).toFixed(4)})`;
     });
   }
@@ -1264,7 +1265,8 @@
   const KLANES = [1, 3, 2];                                    // on the pad it picks, in order: kick, hat, snare
   function knobJob(m, t) {                                     // where the knob works on screen m, in figure coordinates
     const n = Math.floor(beats(t) * (m === 0 ? 1 : 4));
-    if (m === 0) return firstPlayT ? { x: X[mod(n, 4)], y: 201, d: 24 } : { x: 201, y: 201, d: 24 };   // before the first tap: the centre (Darius)
+    // before the first tap: the centre (Darius); with help on, the left bubble, clear of START (Figma "step 1.")
+    if (m === 0) return firstPlayT ? { x: X[mod(n, 4)], y: 201, d: 24 } : { x: startX(), y: 201, d: 24 };
     if (m === 3) { padKnob = null; knobMid = false; return { x: 201, y: noteY(bassShown(t)), d: 24 }; }   // v1: it is the bass
     if (m === 5) { padKnob = null; knobMid = false; return { x: 201, y: tapeC(), d: 24 }; }   // Figma: centred in the gap
     if (m === 2) { padKnob = null; knobMid = false; return { x: 201, y: seqRowY(mod(Math.floor(beats(t) * 4), 32)), d: 24 }; }   // the playhead
