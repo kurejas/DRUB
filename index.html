@@ -454,9 +454,9 @@
   let helpAnim = { on: false, t0: -9, k0: 0, s0: 0 };
   const easeOut = x => 1 - Math.pow(1 - Math.max(0, Math.min(1, x)), 3);
   const helpKnob = (t = now()) => { const a = helpAnim, u = t - a.t0;
-    return a.on ? a.k0 + (1 - a.k0) * easeOut(u / 0.26) : a.k0 * (1 - easeOut((u - 0.12) / 0.26)); };
+    return a.on ? a.k0 + (1 - a.k0) * easeOut(u / 0.16) : a.k0 * (1 - easeOut((u - 0.07) / 0.16)); };
   const helpAt = (t = now()) => { const a = helpAnim, u = t - a.t0;
-    return a.on ? a.s0 + (1 - a.s0) * easeOut((u - 0.14) / 0.24) : a.s0 * (1 - easeOut(u / 0.18)); };
+    return a.on ? a.s0 + (1 - a.s0) * easeOut((u - 0.08) / 0.16) : a.s0 * (1 - easeOut(u / 0.12)); };
   const startX = () => 201 + (72.6 - 201) * helpKnob();     // where the knob waits
   let seg = { t0: now(), b0: 0, bps: STYLES[FIRST].bpm / 60 };
   // Tape stop (step 6, v1's): while held the clock winds down to a halt over TAPE_D seconds; let go, it waits and
@@ -1102,7 +1102,14 @@
   }
   // the blocks: 322 tall (no taller than the Filter square: 320 on a 320 px phone, Figma "iPhone 17 - 39"), centred
   // where the square is (tapeC), squashing to 134
-  const tapeH = t => { const h0 = Math.min(322, 2 * FH); return h0 - (h0 - 134) * tapeFlat(t); }, tapeC = () => 201 + FY;
+  // stopped (never played, or paused), the blocks rest wound down, squashed and blurred (Figma "iPhone 17 - 31"),
+  // winding down on a pause and springing open when the music starts; a tap on them starts it (Darius)
+  let idleAnim = { to: 1, from: 1, t0: -9 };
+  const idleFlat = t => { const a = idleAnim, u = t - a.t0;
+    return a.to ? a.from + (1 - a.from) * (1 - Math.pow(1 - Math.min(1, Math.max(0, u / 0.5)), 2)) : a.from * (1 - S(u, 20, 0.9)); };
+  const setIdle = (to, t) => { idleAnim = { to, from: idleFlat(t), t0: t }; };
+  const flatAll = t => Math.max(tapeFlat(t), idleFlat(t));
+  const tapeH = t => { const h0 = Math.min(322, 2 * FH); return h0 - (h0 - 134) * flatAll(t); }, tapeC = () => 201 + FY;
   // how far a ray from the centre runs to the pill's edge: a capsule of radius 67 round the segment y −134 … +134,
   // each end pushed out by the bass knob's overdrag (ext: [top, bottom] in px)
   function capsuleR(dx, dy, ext) {
@@ -1180,7 +1187,7 @@
     // twice a CSS blur, so 16 px here), clearing as it opens again
     // the bass pill: its glitch only while it is touched (held or dragged); untouched it is still and sharp
     const pillPx = growlBlur(t);
-    const blurPx = morph * kickBlur(t) * (1 - pill) * (1 - tapeA) * (1 - sqA) * (1 - bandA) + (1 - morph) * beatPx + pill * pillPx + tapeA * 16 * tapeFlat(t);
+    const blurPx = morph * kickBlur(t) * (1 - pill) * (1 - tapeA) * (1 - sqA) * (1 - bandA) + (1 - morph) * beatPx + pill * pillPx + tapeA * 16 * flatAll(t);
     if (pill > 0.5) bassFx(t, blurPx);                         // the bass bar has its own, livelier filter
     else if (sqA > 0.5) filtFx(t);                             // and the filter square another
     else shapePath.ownerSVGElement.style.filter = blurPx > 0.05 ? `blur(${blurPx.toFixed(2)}px)` : 'none';
@@ -1780,6 +1787,7 @@
   fig.addEventListener('pointerdown', e => {
     if (mode !== 5 || tapeA < 0.9) return;
     const r = fig.getBoundingClientRect(), y = (e.clientY - r.top) / (r.width / 402);
+    if (!playing) { if (Math.abs(y - tapeC()) < Math.min(322, 2 * FH) / 2 + 10) { if (waitStart) waitStart = 0; else start(); } return; }
     if (Math.abs(y - tapeC()) > tapeH(now()) / 2 + 10) return;
     tapePtr = e.pointerId; fig.setPointerCapture(e.pointerId); tapeDown(now());
   });
@@ -1855,6 +1863,7 @@
     if (settle) { const n = Math.floor(seg.b0); rotOff = mod(rotOff + (n === 0 ? 0 : 90 * n), 360); settle = null; }   // its resting angle
     tape = null;
     playing = true; playT = now(); if (!firstPlayT) firstPlayT = playT; seg = { t0: playT, b0: 0, bps: seg.bps }; fig.classList.remove('idle');
+    setIdle(0, playT);
     resync(playT);                                             // the loop starts over from its first 16th
   }
   // a second tap stops: the clock stands still, nothing more is sent, and what was sent ahead is dropped (tails ring out)
@@ -1864,7 +1873,7 @@
     settle = { t, tau: (b - n) / seg.bps };
     stopX = X[mod(n, 4)];                                     // the bubbles fly into the knob here
     barStop = { t, h: barEls.map(el => parseFloat(el.style.height) || 4) };   // the tempo bars shrink from where they were
-    seg = { t0: t, b0: b, bps: seg.bps }; playing = false; fig.classList.add('idle'); tape = null;
+    setIdle(1, t); seg = { t0: t, b0: b, bps: seg.bps }; playing = false; fig.classList.add('idle'); tape = null;
     if (AU.ready && AU.anchored) for (const v of [1, 2]) AU.node[v].port.postMessage({ cancelGrid: toFrame(t) });
   }
   fig.addEventListener('pointerdown', e => {
