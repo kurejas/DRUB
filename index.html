@@ -1446,10 +1446,13 @@
     // full swell within a note of the middle, sized as Figma 67:2831: 12 px level with the knob, 8 px for the notes either
     // side, then 1 px less per note (7, 6, 5 …) down to 0.5 px; in between notes it blends
     const amp = Math.min(1, Math.abs(v - 5));
+    // the column stretches with the pill when the knob is dragged past an end note, so its end dots stay level with
+    // the pill's ends and the knob never runs past them (Darius)
+    const yTop = noteY(10) - ext[0], yBot = noteY(0) + ext[1], gap = (yBot - yTop) / 10, ky = noteY(v);
     bassBars.forEach((el, n) => {
-      const k = Math.abs(n - v), sz = k < 1 ? 12 - 4 * k : Math.max(0.5, 9 - k);
+      const yn = yBot - n * gap, k = Math.abs(yn - ky) / gap, sz = k < 1 ? 12 - 4 * k : Math.max(0.5, 9 - k);
       const d = 2 + (sz - 2) * amp;
-      el.style.top = noteY(n).toFixed(1) + 'px'; el.style.width = el.style.height = d.toFixed(2) + 'px';
+      el.style.top = yn.toFixed(1) + 'px'; el.style.width = el.style.height = d.toFixed(2) + 'px';
     });
     // the second finger: a 16 px dot on the line, its note on the left; it shrinks away when let go
     const s2 = bassTr[1].sessions[bassTr[1].sessions.length - 1];
