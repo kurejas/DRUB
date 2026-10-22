@@ -186,7 +186,9 @@
   .stage:not([data-mode="2"]) .seq { pointer-events: none; }
   .seq i { position: absolute; border-radius: 50%; background: var(--paper); will-change: transform; }
   .seq i.o { background: none; box-shadow: inset 0 0 0 1px var(--paper); }
-  .seq .t { font-size: 20px; transform: translate(-50%, -50%); top: 38px; cursor: pointer; }
+  .seq .t { font-size: 16px; transform: translate(-50%, -50%); top: 38px; cursor: pointer; }
+  /* the melody's letter names its sound (Figma 67:1271): "M—" small and narrow, then the sound's initial, M—P for Pluck */
+  .seq .t .mdash { font-size: 0.8em; --w: 50; }
   /* a muted line (Figma's "D" frame shows one): its letter and its steps in outline; its specks unchanged */
   .seq .t.mute { color: var(--ink); -webkit-text-stroke: 2px var(--paper); paint-order: stroke fill; }
   /* (the split itself glides with the band: see topSplit) */
@@ -1434,6 +1436,8 @@
     const ky = kn ? kn.y : -99;                                 // the knob's own (sprung) height on the track
     seqMarks.forEach((m, beat) => { m.y = seqRowY(Math.min(31, beat * 4)); m.el.style.top = (m.y - 1).toFixed(2) + 'px'; m.el.style.opacity = Math.abs(m.y - ky) < 13 ? 0 : 1; });
     for (const h of seqHead) h.style.top = (seqTop0() - 34).toFixed(2) + 'px';
+    const ini = toneList()[toneIdx()][0], mh = `<span class="mdash">M—</span><span style="--w: 150">${ini}</span>`;
+    if (seqHead[0].innerHTML !== mh) seqHead[0].innerHTML = mh;
     for (let lane = 0; lane < 4; lane++) {
       seqHead[lane].classList.toggle('mute', muted[lane]);
       // the lane shake: when a line plays, its whole column shivers sideways, the kick most, the hat least
