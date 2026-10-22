@@ -66,7 +66,7 @@
   .stage {
     /* full width (Figma's 874 × 1000 frames): the corner controls sit 40 px in from the window's corners on any screen;
        the figure, the names and the mode dots stay centred, and nothing scales up */
-    position: relative; margin: 0 auto; width: 100%; height: 100dvh; min-height: 560px;
+    position: relative; margin: 0 auto; width: 100%; height: 100dvh; min-height: 480px;
     --top: max(0px, env(safe-area-inset-top) - 20px);
     --bottom: max(0px, env(safe-area-inset-bottom) - 20px);
   }
@@ -314,7 +314,7 @@
   for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
   document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
   document.addEventListener('dblclick', e => e.preventDefault(), { passive: false });
-  var sFit = 1, bassHalf = 134, FH = 201, FY = 0, bandT = 1, bandB = 514, bandTop = 237, topDy = 0, fitN = 0;   // set by fit (declared first: fit runs right away)
+  var sFit = 1, bassHalf = 134, FH = 201, FW = 201, FY = 0, bandT = 1, bandB = 514, bandTop = 237, topDy = 0, fitN = 0;   // set by fit (declared first: fit runs right away)
   // piecewise-linear through Figma's frames: [frame height, value] at 640 (iPhone SE class), 874 (iPhone 17), 1000
   const lerpH = (pts, h) => { const i = h < pts[1][0] ? 0 : 1, [x0, y0] = pts[i], [x1, y1] = pts[i + 1];
                               return y0 + (y1 - y0) * (h - x0) / (x1 - x0); };
@@ -324,6 +324,8 @@
     // the band's top and bottom on the screen (Figma: 183–526 at 640 tall, 237–750 at 874, 265–876 at 1000), below
     // the safe areas, taken into the unscaled figure's units (its centre sits mid-screen)
     const h = Math.min(1400, H - top - bot);
+    // the middle never comes closer than 20 px to the tempo icon (40 px, its bottom 54 px up): Figma 320 × 640 has exactly 20
+    const lim = H - bot - 114, limF = lim - H / 2 + 201;    // on screen, and in the figure's units
     bandTop = top + lerpH([[640, 183], [874, 237], [1000, 265]], h);
     // the style names sit 41 px above the band on every screen, so they never jump between steps (Darius); the
     // whole top block (icon, names, sound strip) moves with them
@@ -331,14 +333,18 @@
     // nothing scales (Darius, Figma's 320 × 640 frames): the shapes keep their size, centred, and run past the screen's
     // edges where they must; only the Bass pill gets shorter (294 px tall at 640, 402 at 874), keeping its 134 px width
     sFit = 1;
-    bassHalf = Math.max(50, Math.min(134, lerpH([[640, 80.2], [874, 134], [1000, 134]], h)));
+    bassHalf = Math.max(40, Math.min(134, limF - 201 - 67, lerpH([[640, 80.2], [874, 134], [1000, 134]], h)));
     // the Filter square (Figma 320 × 640 "iPhone 17 - 38", 874 × 1000 "- 32"): no wider than the screen (320 on a 320
     // phone; the letters and dots keep their size, the grid closes up), centred, but never above the Sequencer band's
     // top, so it clears the names on short screens (y 183 at 640)
-    FH = Math.min(201, stage.clientWidth / 2);
+    // (and smaller still where it would come within 20 px of the tempo icon: the square shrinks, its contents don't)
+    // (then it keeps its width and gets shorter, no longer square (Darius): FW half its width, FH half its height)
+    FW = Math.min(201, stage.clientWidth / 2);
+    FH = FW;
+    for (let i = 0; i < 4; i++) FH = Math.max(80, Math.min(FW, (lim - Math.max(bandTop, H / 2 - FH)) / 2));
     FY = Math.max(0, bandTop - (H / 2 - FH));
     bandT = bandTop - H / 2 + 201;
-    bandB = top + lerpH([[640, 526], [874, 750], [1000, 876]], h) - H / 2 + 201;
+    bandB = Math.min(limF, top + lerpH([[640, 526], [874, 750], [1000, 876]], h) - H / 2 + 201);
     fitN++;
   }
   addEventListener('resize', () => { fit(); lastPos = null; }); fit();
@@ -1106,7 +1112,7 @@
     const angs = [];
     for (let i = 0; i < RAYS; i++) angs.push(i * 2 * Math.PI / RAYS);
     if (rho < 0.01) for (const [vx, vy] of V) angs.push(mod(Math.atan2(vx - cx, -(vy - cy)), 2 * Math.PI));   // sharp corners stay sharp
-    const SQ = [[201 - FH, 201 + FY - FH], [201 + FH, 201 + FY - FH], [201 + FH, 201 + FY + FH], [201 - FH, 201 + FY + FH]];
+    const SQ = [[201 - FW, 201 + FY - FH], [201 + FW, 201 + FY - FH], [201 + FW, 201 + FY + FH], [201 - FW, 201 + FY + FH]];
     if (sqA > 0.001) for (const [x, y] of SQ) angs.push(mod(Math.atan2(x - 201, -(y - 201)), 2 * Math.PI));   // its corners stay sharp
     if (bandA > 0.001) for (const [x, y] of OCT) angs.push(mod(Math.atan2(x - 201, -(y - 201)), 2 * Math.PI));   // its corners stay sharp
     const TB = [[0, tapeC() - th / 2], [402, tapeC() - th / 2], [402, tapeC() + th / 2], [0, tapeC() + th / 2]];
@@ -1582,7 +1588,8 @@
      it back to the centre, open. */
   // the dot grid: the margin from the square's edge equals the gap between columns, and the same down the rows (Darius),
   // so the five sit at 1/6 … 5/6 of the square: 67 px apart in the full 402 square, 53 in a 320 one
-  const FSPAN = () => 2 * FH * 4 / 6, fgx = u => 201 - FH + 2 * FH / 6 + u * FSPAN(), fgy = u => 201 + FY - FH + 2 * FH / 6 + u * FSPAN();
+  const FSPAN = () => 2 * FW * 4 / 6, FSPANY = () => 2 * FH * 4 / 6;
+  const fgx = u => 201 - FW + 2 * FW / 6 + u * FSPAN(), fgy = u => 201 + FY - FH + 2 * FH / 6 + u * FSPANY();
   const filtEl = document.querySelector('.filt');
   const filtDots = [];
   [8, 6, 4, 2, 1].forEach((d, col) => { for (let row = 0; row < 5; row++) (() => {
@@ -1630,7 +1637,7 @@
     return h;
   }
   function skylinePath(h, gt) {
-    const w = 2 * FH / SKY_N, x0 = 201 - FH, top = 201 + FY - FH, bot = 201 + FY + FH;
+    const w = 2 * FW / SKY_N, x0 = 201 - FW, top = 201 + FY - FH, bot = 201 + FY + FH;
     let d = `M${x0.toFixed(2)} ` + (top - h[0]).toFixed(2);
     for (let i = 0; i < SKY_N; i++) { const y = (top - h[i]).toFixed(2); d += `L${(x0 + i * w).toFixed(2)} ${y}L${(x0 + (i + 1) * w).toFixed(2)} ${y}`; }
     for (let i = SKY_N - 1; i >= 0; i--) { const y = (bot + h[i]).toFixed(2); d += `L${(x0 + (i + 1) * w).toFixed(2)} ${y}L${(x0 + i * w).toFixed(2)} ${y}`; }
@@ -1684,7 +1691,7 @@
     for (const v of [1, 2]) post(v, [[EV.FILT, 0, f.x, f.y, 0]]);
   }
   const filtNorm = e => { const r = fig.getBoundingClientRect(), sc = r.width / 402;
-    return { x: Math.max(0, Math.min(1, ((e.clientX - r.left) / sc - fgx(0)) / FSPAN())), y: Math.max(0, Math.min(1, ((e.clientY - r.top) / sc - fgy(0)) / FSPAN())) }; };
+    return { x: Math.max(0, Math.min(1, ((e.clientX - r.left) / sc - fgx(0)) / FSPAN())), y: Math.max(0, Math.min(1, ((e.clientY - r.top) / sc - fgy(0)) / FSPANY())) }; };
   filtEl.addEventListener('pointerdown', e => {
     if (sqA < 0.9) return;
     const t = now(), lt = filt.lastTap;
