@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-title" content="DRUB">
 <meta name="application-name" content="DRUB">
 <title>DRUB</title>
-<meta name="drub-build" content="20261023062922">
+<meta name="drub-build" content="20261023063254">
 <script>
   // stale copies (GitHub Pages lets browsers keep a page 10 minutes; a home-screen app keeps its own): on launch, ask
   // the server for the current build without any cache, and if it is newer, reload once
@@ -1092,13 +1092,14 @@
     for (let k = 0; k < N; k++) { let d = 0; for (let i = 0; i < N; i += 4) { const a = G[i], b = S[(i + k) % N]; d += (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2; } if (d < bd) { bd = d; best = k; } }
     return [G, G.map((_, i) => S[(i + best) % N])];
   }
-  function kitMorph(toSyn) {
+  // (gAt, D: a custom path in time, e.g. the first-visit peek that goes partway and comes back)
+  function kitMorph(toSyn, gAt = null, D = 300) {
     cancelAnimationFrame(kmRaf);
     if (!kmPts) try { kmPts = kmOutlines(); } catch (_) { return; }
-    const t0 = performance.now(), D = 300, ez = x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+    const t0 = performance.now(), ez = x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
     kitBtn.classList.add('morphing');
     const step = () => {
-      const u = Math.min(1, (performance.now() - t0) / D), k = ez(u), g = toSyn ? k : 1 - k;   // g: 0 guitar … 1 speaker
+      const u = Math.min(1, (performance.now() - t0) / D), k = ez(u), g = gAt ? gAt(u) : toSyn ? k : 1 - k;   // g: 0 guitar … 1 speaker
       kmC.forEach((c, i) => { const [x0, y0, r0, x1, y1, r1] = KM[i];
         c.setAttribute('cx', (x0 + (x1 - x0) * g).toFixed(2)); c.setAttribute('cy', (y0 + (y1 - y0) * g).toFixed(2)); c.setAttribute('r', (r0 + (r1 - r0) * g).toFixed(2)); });
       // the cones' centre dots ride in the travelling cones, growing in with them (not popping in at the end)
@@ -2167,6 +2168,20 @@
     setBpm(DEF[shown].bpm);
     resync(); tick(660, 0.5);
   });
+  // First visit hints (Darius: people don't see that the styles scroll and the icon switches): ~2 s in, if nothing has
+  // been touched, the style strip slides a third of the way to the next style and springs back, and the icon half-morphs
+  // to the other kit and back. Each repeats on later visits until that control has been used once (remembered here).
+  const used = k => { try { return localStorage.getItem('drub-used-' + k) === '1'; } catch (_) { return false; } };
+  const markUsed = k => { try { localStorage.setItem('drub-used-' + k, '1'); } catch (_) {} };
+  picker.addEventListener('pointerdown', () => markUsed('style')); kitBtn.addEventListener('click', () => markUsed('kit'));
+  let stripPeek = null, touched = false;
+  stage.addEventListener('pointerdown', () => { touched = true; if (stripPeek) { pos = stripPeek.base; stripPeek = null; } }, true);
+  setTimeout(() => { if (!touched && !used('style') && !anim) stripPeek = { t0: now(), base: pos }; }, 2000);
+  setTimeout(() => {
+    if (touched || used('kit') || snd().kitLock != null) return;
+    const syn = !kitNow(), ez = x => x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+    kitMorph(syn, u => { const h = 0.5 * Math.sin(Math.PI * ez(u)); return syn ? 1 - h : h; }, 900);
+  }, 2900);
   setMode(0); applyMode(0, 0); pending = null;
   if (Q.has('helpdemo')) setTimeout(() => document.querySelector('.help').click(), 1500);   // testing: help on by itself
 
@@ -2187,6 +2202,10 @@
     const t = now();
     helpState(t);
     if (anim) { pos = anim.from + (anim.to - anim.from) * S(t - anim.t0, still ? 1e3 : 16); if (t - anim.t0 > 0.8) { pos = anim.to; anim = null; } }
+    else if (stripPeek) {                                    // the first-visit peek: a third of the way on, and back
+      const u = (t - stripPeek.t0) / 0.9;
+      if (u >= 1) { pos = stripPeek.base; stripPeek = null; } else pos = stripPeek.base + 0.35 * Math.sin(Math.PI * u);
+    }
     if (pos !== lastPos) { layoutStrip(); lastPos = pos; }
     if (pending && t >= pending.t) { applyMode(pending.mode, pending.t); pending = null; }
     if (tape && tape.tR != null && t > tape.tR + 1.5) tape = null;   // a finished tape stop, settled: forget it
