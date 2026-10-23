@@ -9,13 +9,11 @@
 <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<!-- from the home screen the page runs up under the status bar (no white band above it); --top keeps the corners clear -->
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="DRUB">
 <meta name="application-name" content="DRUB">
 <title>DRUB</title>
-<meta name="drub-build" content="20261023065159">
+<meta name="drub-build" content="20261023065803">
 <script>
   // stale copies (GitHub Pages lets browsers keep a page 10 minutes; a home-screen app keeps its own): on launch, ask
   // the server for the current build without any cache, and if it is newer, reload once
@@ -78,12 +76,8 @@
   .stage {
     /* full width (Figma's 874 × 1000 frames): the corner controls sit 40 px in from the window's corners on any screen;
        the figure, the names and the mode dots stay centred, and nothing scales up */
-    /* pinned to the screen's edges rather than 100dvh: as a home-screen app (status bar see-through) iOS reports
-       100dvh short, which left a gap at the bottom and moved everything placed from the height */
-    position: fixed; inset: 0; margin: 0 auto; width: 100%; min-height: 480px;
-    /* its own page colour: being fixed it is a layer of its own, and the names, icon, bubbles and knob blend by
-       difference against what is in it; with no background they had nothing to invert (white on the white page) */
-    background: var(--paper);
+    position: relative; margin: 0 auto; width: 100%; height: 100dvh; min-height: 480px;
+    background: var(--paper);                                  /* the names, icon, bubbles and knob blend against it */
     --top: max(0px, env(safe-area-inset-top) - 20px);
     --bottom: max(0px, env(safe-area-inset-bottom) - 20px);
   }
@@ -113,7 +107,10 @@
   .help { top: calc(43.5px + var(--top)); right: 49.5px; transform: translateX(50%); font-size: 24px; }
   /* help is off by default: the ? as a 1 px outline, no fill (Figma 42:2930, inside border); filled once help exists */
   .help:not(.on) { color: transparent; -webkit-text-stroke: 1px var(--ink); }
-  .help.peek:not(.on) { color: var(--ink); }                 /* the first-visit hint: a blink of the filled ? */
+  /* the first-visit hint: a slight shake (it keeps its translateX(50%) centring) */
+  @keyframes helpShake { 0%, 100% { transform: translateX(50%); } 20% { transform: translateX(calc(50% - 2px)); }
+    40% { transform: translateX(calc(50% + 2px)); } 60% { transform: translateX(calc(50% - 1.5px)); } 80% { transform: translateX(calc(50% + 1px)); } }
+  .help.peek { animation: helpShake 0.5s ease-in-out; }
   .help { cursor: pointer; z-index: 3; }
   .help::before { content: ''; position: absolute; inset: -14px -16px; }   /* a 48 px tap zone */
   /* Help on: every initial spells out its word (K → KICK). The added letters open out of the initial on the width
@@ -319,6 +316,10 @@
             background: var(--ink); transform: translateY(-50%); }   /* ends stay round */
   .dots { position: absolute; left: 50%; bottom: calc(40px + var(--bottom)); width: 134px; height: 14px; transform: translateX(-50%);
           display: flex; align-items: center; justify-content: space-between; }
+  /* help spells out the tempo (132 BPM) and the key (F MINOR): on a phone the screen dots between them close up to a
+     fixed 60 px so nothing collides (wide screens have room) */
+  @media (max-width: 430px) { .dots { transition: width 0.4s ease-in-out; } html.helpon .dots { width: 60px; } }
+  @media (max-width: 340px) { html.helpon .dots { width: 40px; } }
   .dots i { display: block; background: var(--ink); border-radius: 100px; width: var(--d); height: var(--d);
             transition: width 300ms var(--ease), height 300ms var(--ease); }
   .modes { position: absolute; left: 50%; bottom: calc(25px + var(--bottom)); width: 170px; height: 44px; transform: translateX(-50%);
@@ -442,19 +443,7 @@
   // piecewise-linear through Figma's frames: [frame height, value] at 640 (iPhone SE class), 874 (iPhone 17), 1000
   const lerpH = (pts, h) => { const i = h < pts[1][0] ? 0 : 1, [x0, y0] = pts[i], [x1, y1] = pts[i + 1];
                               return y0 + (y1 - y0) * (h - x0) / (x1 - x0); };
-  // As a home-screen app (iOS, status bar see-through) the page is drawn from the very top of the screen, but iOS reports
-  // the viewport short by both safe areas (seen on an iPhone 17: 96 px short), so everything placed from the height sat
-  // too high and left a gap at the bottom. There, the stage takes the screen's own height.
-  const STANDALONE = navigator.standalone === true;          // iOS home-screen apps only (not desktop installs)
-  function standaloneSize() {
-    if (!STANDALONE) return;
-    const portrait = innerHeight >= innerWidth, sw = screen.width, sh = screen.height;
-    const full = portrait ? Math.max(sw, sh) : Math.min(sw, sh), short = full - innerHeight;
-    if (short > 0 && short <= 150) { stage.style.bottom = 'auto'; stage.style.height = full + 'px'; }   // the safe-area gap only
-    else { stage.style.bottom = ''; stage.style.height = ''; }
-  }
   function fit() {
-    standaloneSize();
     const cs = getComputedStyle(stage), top = parseFloat(cs.getPropertyValue('--top')) || 0,
           bot = parseFloat(cs.getPropertyValue('--bottom')) || 0, H = stage.clientHeight;
     // the band's top and bottom on the screen (Figma: 183–526 at 640 tall, 237–750 at 874, 265–876 at 1000), below
@@ -2197,11 +2186,11 @@
     const syn = !kitNow(), ez = x => x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
     kitMorph(syn, u => { const h = 0.5 * Math.sin(Math.PI * ez(u)); return syn ? 1 - h : h; }, 900);
   }, 2100);
-  // …and then the ?: two quick blinks of its filled (help on) look, sharp, no fade
+  // …and then the ?: a slight shake
   const helpBtn = document.querySelector('.help');
   helpBtn.addEventListener('click', () => { markUsed('help'); helpBtn.classList.remove('peek'); });
-  [[3200, true], [3420, false], [3560, true], [3780, false]].forEach(([ms, on]) =>
-    setTimeout(() => { if (!used('help')) helpBtn.classList.toggle('peek', on); }, ms));
+  setTimeout(() => { if (!used('help')) helpBtn.classList.add('peek'); }, 3200);
+  setTimeout(() => helpBtn.classList.remove('peek'), 3800);
   setMode(0); applyMode(0, 0); pending = null;
   if (Q.has('helpdemo')) setTimeout(() => document.querySelector('.help').click(), 1500);   // testing: help on by itself
 
