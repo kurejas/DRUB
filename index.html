@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-title" content="DRUB">
 <meta name="application-name" content="DRUB">
 <title>DRUB</title>
-<meta name="drub-build" content="20261023061443">
+<meta name="drub-build" content="20261023061734">
 <script>
   // stale copies (GitHub Pages lets browsers keep a page 10 minutes; a home-screen app keeps its own): on launch, ask
   // the server for the current build without any cache, and if it is newer, reload once
@@ -108,7 +108,7 @@
   /* help: the page-colour mode next to the logo (Figma "step 1." 89:3646): LIGHT, DARK or MIXED, 16 px, cap line 46.5,
      widest beside the logo and 25 narrower per letter away from it */
   .themehint { left: 71px; top: calc(46.5px + var(--top)); font-size: 16px; color: var(--ink); pointer-events: none;
-               opacity: 0; transition: opacity 0.25s ease; }
+               opacity: 0; transition: opacity 0.4s ease; }
   html.helpon .themehint { opacity: 1; }
   .help { top: calc(43.5px + var(--top)); right: 49.5px; transform: translateX(50%); font-size: 24px; }
   /* help is off by default: the ? as a 1 px outline, no fill (Figma 42:2930, inside border); filled once help exists */
@@ -121,11 +121,13 @@
   @property --lw { syntax: '<number>'; inherits: false; initial-value: 150; }
   /* clipped at the sides only (clip-path, not overflow: an overflow box sits on its bottom edge, which lifted the
      initial in Safari and cut the letters' tops and bottoms on iPhone) */
-  .t .more { display: inline-block; max-width: 0; vertical-align: baseline; white-space: nowrap;
-             clip-path: inset(-0.5em 0 -0.5em 0); transition: max-width 0.32s ease; }
-  .t .hl { --lw: var(--off, 150); font-variation-settings: "wdth" var(--lw), "opsz" 28; transition: --lw 0.32s ease; }
+  /* the added letters open to their own width (a grid column from 0fr to 1fr) and fade in as they do, and back */
+  .t .more { display: inline-grid; grid-template-columns: 0fr; opacity: 0; vertical-align: baseline; white-space: nowrap;
+             clip-path: inset(-0.5em 0 -0.5em 0); transition: grid-template-columns 0.4s ease, opacity 0.4s ease; }
+  .t .more > .mi { min-width: 0; }
+  .t .hl { --lw: var(--off, 150); font-variation-settings: "wdth" var(--lw), "opsz" 28; transition: --lw 0.4s ease; }
   .t .more .hl { --lw: 50; }
-  html.helpon .t .more { max-width: 12em; }
+  html.helpon .t .more { grid-template-columns: 1fr; opacity: 1; }
   html.helpon .t .hl { --lw: var(--on); }
 
   /* the style picker: its instrument, then the name between the fading neighbours */
@@ -210,7 +212,7 @@
   /* the bass sound's name (SUB, ACID, GROWL, UPRIGHT): help only (Figma "iPhone 17 - 24" 89:3334), 16 px, centred on the
      knob 35.5 px above the top note, riding up with an overdrag; set like the style names; tap it for the next sound */
   .bass .tone { left: 201px; transform: translate(-50%, -50%); cursor: pointer; font-size: 16px; opacity: 0;
-                pointer-events: none; transition: opacity 0.25s ease; }
+                pointer-events: none; transition: opacity 0.4s ease; }
   html.helpon .bass .tone { opacity: 1; pointer-events: auto; }
   .bass .note { left: 232px; transform: translateY(-50%); font-size: 12px; }
   .bass .note2 { left: 160px; transform: translate(-50%, -50%); font-size: 9px; }
@@ -261,12 +263,12 @@
   .pad .lbl.small { font-size: 16px; }
   /* help: HOLD TO CLEAR under the pad (Figma "step 2." 85:3077), 16 px, set like the style names (wordWidths) */
   .pad .padhint { position: absolute; left: 161px; top: 362px; transform: translateX(-50%); font-size: 16px; color: var(--ink);
-                  pointer-events: none; opacity: 0; transition: opacity 0.25s ease; }
+                  pointer-events: none; opacity: 0; transition: opacity 0.4s ease; }
   html.helpon .stage.can-clear .pad .padhint { opacity: 1; }   /* only when holding would clear something (helpState) */
   /* help: DOUBLE-TAP TO RESET where a double tap resets (the Sequencer: the pattern, sound and tempo; the Filter: back to
      the middle), placed by placeHints() as the shapes resize */
   .figure .dthint { position: absolute; left: 201px; transform: translate(-50%, -50%); font-size: 16px; pointer-events: none;
-                    opacity: 0; transition: opacity 0.25s ease; z-index: 2; }
+                    opacity: 0; transition: opacity 0.4s ease; z-index: 2; }
   .figure .dthint.seq-h { color: var(--ink); }              /* on the page, under the band's bottom tip */
   .figure .dthint.filt-h { color: var(--paper); }           /* in the square, bottom middle: RESONANCE's mirror */
   .figure .dthint.tape-h { color: var(--ink); }            /* on the page, under the blocks: HOLD (the tape stop) */
@@ -391,7 +393,7 @@
   const helpWord = (w, top = 150) => {
     const ws = wordWidths(w, top);
     const sp = i => `<span class="hl" style="--on: ${ws[i]}">${w[i]}</span>`;
-    return sp(0) + `<span class="more">${[...w].slice(1).map((_, i) => sp(i + 1)).join('')}</span>`;
+    return sp(0) + `<span class="more"><span class="mi">${[...w].slice(1).map((_, i) => sp(i + 1)).join('')}</span></span>`;
   };
   document.querySelector('.help').addEventListener('click', e => {
     const on = document.documentElement.classList.toggle('helpon'); e.currentTarget.classList.toggle('on', on);
@@ -576,7 +578,7 @@
     // right, widest first, 25 narrower per character (Figma "step 1." 89:3732: 1 8 1 B P M = 150 125 100 75 50 30)
     const ds = [...String(bpm)], ws = ds.length === 3 ? [125, 150, 125] : [150, 125], on = i => WSTEP[Math.min(5, i)];
     bpmEl.innerHTML = ds.map((d, j) => `<span class="hl" style="--off: ${ws[j]}; --on: ${on(j)}">${d}</span>`).join('') +
-      `<span class="more">${[' ', 'B', 'P', 'M'].map((c, k) => `<span class="hl" style="--on: ${on(ds.length + Math.max(0, k - 1))}">${c === ' ' ? '&nbsp;' : c}</span>`).join('')}</span>`;
+      `<span class="more"><span class="mi">${[' ', 'B', 'P', 'M'].map((c, k) => `<span class="hl" style="--on: ${on(ds.length + Math.max(0, k - 1))}">${c === ' ' ? '&nbsp;' : c}</span>`).join('')}</span></span>`;
     bpmEl.setAttribute('aria-label', bpm + ' BPM');
     tempoEl.setAttribute('aria-valuenow', bpm);
   }
@@ -1111,7 +1113,10 @@
   const keyEl = document.querySelector('.key'), keyZone = document.querySelector('.keyzone');
   const mouth = document.querySelector('.face .mouth'), eyes = document.querySelector('.face .eyes');
   let moodAt = -9, moodFrom = -1, letterAt = -9, letterShown = null;
-  const keyLabel = () => { const n = ROOTS[key.root]; return n[0] + (n[1] ? `<span class="acc">${n[1] === '♭' ? 'b' : '#'}</span>` : ''); };
+  // in help the key spells its mood after the letter: A MINOR, F# MAJOR (left to right, 25 narrower per letter)
+  const keyLabel = () => { const n = ROOTS[key.root], mood = key.scale ? 'MAJOR' : 'MINOR';
+    return n[0] + (n[1] ? `<span class="acc">${n[1] === '♭' ? 'b' : '#'}</span>` : '') +
+      `<span class="more"><span class="mi"><span class="hl" style="--on: 125">&nbsp;</span>${[...mood].map((c, i) => `<span class="hl" style="--on: ${WSTEP[Math.min(5, i + 1)]}">${c}</span>`).join('')}</span></span>`; };
   function setKey(root, scale) {
     if (root === key.root && scale === key.scale) return;
     const t = now();
@@ -1608,7 +1613,7 @@
   const bassEl = document.querySelector('.bass'), toneEl = bassEl.querySelector('.tone'), noteEl = bassEl.querySelector('.note');
   const note2El = bassEl.querySelector('.note2'), dot2 = bassEl.querySelector('.dot2');
   const bassBars = [];
-  for (let n = 0; n <= 10; n++) { const i = document.createElement('i'); i.className = 'bar'; bassEl.prepend(i); bassBars.push(i); }
+  for (let n = 0; n < 13; n++) { const i = document.createElement('i'); i.className = 'bar'; bassEl.prepend(i); bassBars.push(i); }
   for (let n = 0; n <= 10; n++) { const i = document.createElement('i'); i.className = 'tick'; i.style.top = noteY(n) + 'px'; i.style.width = (n % 5 === 0 ? 12 : 7) + 'px'; bassEl.prepend(i); }
   toneEl.style.top = (noteY(10) - 35.5).toFixed(1) + 'px';
   function bassRender(t) {
@@ -1624,12 +1629,19 @@
     const amp = Math.min(1, Math.abs(v - 5));
     // the column stretches with the pill when the knob is dragged past an end note, so its end dots stay level with
     // the pill's ends and the knob never runs past them (Darius)
-    const yTop = noteY(10) - ext[0], yBot = noteY(0) + ext[1], gap = (yBot - yTop) / 10, ky = noteY(v);
-    bassBars.forEach((el, n) => {
-      const yn = yBot - n * gap, k = Math.abs(yn - ky) / gap, sz = k < 1 ? 12 - 4 * k : Math.max(2, 9 - k);   // never under the resting 2 px
-      const d = 2 + (sz - 2) * amp;
-      el.style.top = yn.toFixed(1) + 'px'; el.style.width = el.style.height = d.toFixed(2) + 'px';
-    });
+    // Figma 67:2831: 13 dots from the top end to the bottom one (stretching with an overdrag), an equal gap between
+    // their edges, so the small ones sit closer; sized by distance from the knob, the biggest level with it
+    const yTop = noteY(10) - ext[0], yBot = noteY(0) + ext[1], ky = noteY(v), N = bassBars.length;
+    const lay = q => { const d = bassBars.map((_, i) => { const k = Math.abs(i - q), sz = k < 1 ? 12 - 4 * k : Math.max(2, 9 - k); return 2 + (sz - 2) * amp; });
+      let inner = 0; for (let i = 0; i < N - 1; i++) inner += d[i] / 2 + d[i + 1] / 2;
+      const g = (yBot - yTop - inner) / (N - 1), c = [yTop]; for (let i = 1; i < N; i++) c.push(c[i - 1] + d[i - 1] / 2 + g + d[i] / 2);
+      return { d, c }; };
+    let q = (N - 1) * (ky - yTop) / Math.max(1, yBot - yTop), L = lay(q);
+    for (let it = 0; it < 3; it++) {                         // settle q so the biggest dot sits level with the knob
+      let j = 0; while (j < N - 2 && L.c[j + 1] < ky) j++;
+      q = Math.max(0, Math.min(N - 1, j + (ky - L.c[j]) / Math.max(1e-6, L.c[j + 1] - L.c[j]))); L = lay(q);
+    }
+    bassBars.forEach((el, i) => { el.style.top = L.c[i].toFixed(1) + 'px'; el.style.width = el.style.height = L.d[i].toFixed(2) + 'px'; });
     // the second finger: a 16 px dot on the line, its note on the left; it shrinks away when let go
     const s2 = bassTr[1].sessions[bassTr[1].sessions.length - 1];
     const r = s2 && t >= s2.t0 ? 1 - S(t - s2.t1, 26) : 0, v2 = dragVal(bassTr[1], t);
