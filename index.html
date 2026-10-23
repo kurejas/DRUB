@@ -93,6 +93,9 @@
           cursor: pointer; z-index: 3; }
   .logo::before { content: ''; position: absolute; inset: -12px; }   /* a 48 px tap zone round the 24 px mark */
   .logo svg { display: block; overflow: visible; }
+  /* a colour-only change (all black ↔ all white): the circle dips and springs back as the pages flip */
+  @keyframes logoPop { 0% { transform: scale(1); } 40% { transform: scale(0.6); } 75% { transform: scale(1.06); } 100% { transform: scale(1); } }
+  .logo.pop svg { animation: logoPop 0.26s ease-out; }
   .help { top: calc(43.5px + var(--top)); right: 49.5px; transform: translateX(50%); font-size: 24px; }
   /* help is off by default: the ? as a 1 px outline, no fill (Figma 42:2930, inside border); filled once help exists */
   .help:not(.on) { color: transparent; -webkit-text-stroke: 1px var(--ink); }
@@ -1984,6 +1987,7 @@
     else if (pageTheme === 1) { pageTheme = 2; pageDark = !pageDark; }
     else pageTheme = 0;
     paint(m); tick(pageTheme ? 560 : 700, 0.4); logoMorph(pageTheme ? 1 : 0);
+    if (pageTheme === 2) { logoEl.classList.remove('pop'); void logoEl.offsetWidth; logoEl.classList.add('pop'); }   // colour only
     logoEl.setAttribute('aria-label', `Page colours: ${pageTheme ? (pageDark ? 'all black' : 'all white') : 'alternating'}. Tap to change`);
   }
   // the logo between its two states: the circles slide together and grow into one as the lens fades (and back)
