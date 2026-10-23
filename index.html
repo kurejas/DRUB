@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-title" content="DRUB">
 <meta name="application-name" content="DRUB">
 <title>DRUB</title>
-<meta name="drub-build" content="20261023062612">
+<meta name="drub-build" content="20261023062922">
 <script>
   // stale copies (GitHub Pages lets browsers keep a page 10 minutes; a home-screen app keeps its own): on launch, ask
   // the server for the current build without any cache, and if it is newer, reload once
@@ -108,7 +108,7 @@
   /* help: the page-colour mode next to the logo (Figma "step 1." 89:3646): LIGHT, DARK or MIXED, 16 px, cap line 46.5,
      widest beside the logo and 25 narrower per letter away from it */
   .themehint { left: 71px; top: calc(46.5px + var(--top)); font-size: 16px; color: var(--ink); pointer-events: none;
-               opacity: 0; transition: opacity 0.6s ease-in-out; }
+               opacity: 0; }
   html.helpon .themehint { opacity: 1; }
   .help { top: calc(43.5px + var(--top)); right: 49.5px; transform: translateX(50%); font-size: 24px; }
   /* help is off by default: the ? as a 1 px outline, no fill (Figma 42:2930, inside border); filled once help exists */
@@ -121,13 +121,14 @@
   @property --lw { syntax: '<number>'; inherits: false; initial-value: 150; }
   /* clipped at the sides only (clip-path, not overflow: an overflow box sits on its bottom edge, which lifted the
      initial in Safari and cut the letters' tops and bottoms on iPhone) */
-  /* the added letters open to their own width (a grid column from 0fr to 1fr) and fade in as they do, and back */
-  .t .more { display: inline-grid; grid-template-columns: 0fr; opacity: 0; vertical-align: baseline; white-space: nowrap;
-             clip-path: inset(-0.5em 0 -0.5em 0); transition: grid-template-columns 0.5s ease-in-out, opacity 0.6s ease-in-out; }
+  /* help text appears and goes at once (no fade, Darius); the added letters open to their own width (a grid column
+     from 0fr to 1fr) as their width axis morphs: the lettering animation stays */
+  .t .more { display: inline-grid; grid-template-columns: 0fr; vertical-align: baseline; white-space: nowrap;
+             clip-path: inset(-0.5em 0 -0.5em 0); transition: grid-template-columns 0.5s ease-in-out; }
   .t .more > .mi { min-width: 0; }
   .t .hl { --lw: var(--off, 150); font-variation-settings: "wdth" var(--lw), "opsz" 28; transition: --lw 0.5s ease-in-out; }
   .t .more .hl { --lw: 50; }
-  html.helpon .t .more { grid-template-columns: 1fr; opacity: 1; }
+  html.helpon .t .more { grid-template-columns: 1fr; }
   html.helpon .t .hl { --lw: var(--on); }
 
   /* the style picker: its instrument, then the name between the fading neighbours */
@@ -212,7 +213,7 @@
   /* the bass sound's name (SUB, ACID, GROWL, UPRIGHT): help only (Figma "iPhone 17 - 24" 89:3334), 16 px, centred on the
      knob 35.5 px above the top note, riding up with an overdrag; set like the style names; tap it for the next sound */
   .bass .tone { left: 201px; transform: translate(-50%, -50%); cursor: pointer; font-size: 16px; opacity: 0;
-                pointer-events: none; transition: opacity 0.6s ease-in-out; }
+                pointer-events: none; }
   html.helpon .bass .tone { opacity: 1; pointer-events: auto; }
   .bass .note { left: 232px; transform: translateY(-50%); font-size: 12px; }
   .bass .note2 { left: 160px; transform: translate(-50%, -50%); font-size: 9px; }
@@ -263,19 +264,19 @@
   .pad .lbl.small { font-size: 16px; }
   /* help: HOLD TO CLEAR under the pad (Figma "step 2." 85:3077), 16 px, set like the style names (wordWidths) */
   .pad .padhint { position: absolute; left: 161px; top: 362px; transform: translateX(-50%); font-size: 16px; color: var(--ink);
-                  pointer-events: none; opacity: 0; transition: opacity 0.6s ease-in-out; }
+                  pointer-events: none; opacity: 0; }
   html.helpon .stage.can-clear .pad .padhint { opacity: 1; }   /* only when holding would clear something (helpState) */
   /* help: DOUBLE-TAP TO RESET where a double tap resets (the Sequencer: the pattern, sound and tempo; the Filter: back to
      the middle), placed by placeHints() as the shapes resize */
   .figure .dthint { position: absolute; left: 201px; transform: translate(-50%, -50%); font-size: 16px; pointer-events: none;
-                    opacity: 0; transition: opacity 0.6s ease-in-out; z-index: 2; }
+                    opacity: 0; z-index: 2; }
   .figure .dthint.seq-h { color: var(--ink); }              /* on the page, under the band's bottom tip */
   .figure .dthint.filt-h { color: var(--paper); }           /* in the square, bottom middle: RESONANCE's mirror */
   .figure .dthint.tape-h { color: var(--ink); }
   /* help, first screen: SWIPE → / PRESS → under the triangle (where Figma "step 1." 89:3966 has GO →), a button to the next screen (tap, click,
      or the → key / a swipe as ever) */
   .figure .dthint.go-h { color: var(--ink); cursor: pointer; }
-  html.helpon .stage[data-mode="0"] .dthint.go-h { opacity: 1; pointer-events: auto; }
+  html.helpon .stage[data-mode="0"].can-go .dthint.go-h { opacity: 1; pointer-events: auto; }   /* not while START shows */
   .figure .dthint.go-h::before { content: ''; position: absolute; inset: -14px -20px; }   /* a bigger tap zone */
   /* touch screens (phones, tablets) say SWIPE →; a mouse and keyboard, PRESS → (the arrow key) */
   .go-h .go-touch { display: none; }
@@ -1625,6 +1626,9 @@
   const bassEl = document.querySelector('.bass'), toneEl = bassEl.querySelector('.tone'), noteEl = bassEl.querySelector('.note');
   const note2El = bassEl.querySelector('.note2'), dot2 = bassEl.querySelector('.dot2');
   const bassBars = [];
+  // a dot's size by its distance from the knob, in dots (Darius): 12 level with it, then 6, 5, 4, 3, 2, 1, 0.5, gone
+  const BSZ = [12, 6, 5, 4, 3, 2, 1, 0.5, 0];
+  const bassDot = k => { const i = Math.min(BSZ.length - 1, Math.floor(k)), f = k - i; return i >= BSZ.length - 1 ? 0 : BSZ[i] + (BSZ[i + 1] - BSZ[i]) * f; };
   for (let n = 0; n < 13; n++) { const i = document.createElement('i'); i.className = 'bar'; bassEl.prepend(i); bassBars.push(i); }
   for (let n = 0; n <= 10; n++) { const i = document.createElement('i'); i.className = 'tick'; i.style.top = noteY(n) + 'px'; i.style.width = (n % 5 === 0 ? 12 : 7) + 'px'; bassEl.prepend(i); }
   toneEl.style.top = (noteY(10) - 35.5).toFixed(1) + 'px';
@@ -1644,8 +1648,8 @@
     // Figma 67:2831: 13 dots from the top end to the bottom one (stretching with an overdrag), an equal gap between
     // their edges, so the small ones sit closer; sized by distance from the knob, the biggest level with it
     const yTop = noteY(10) - ext[0], yBot = noteY(0) + ext[1], ky = noteY(v), N = bassBars.length;
-    // sizes: 12 level with the knob, then 6, 5, 4 … (Darius)
-    const lay = q => { const d = bassBars.map((_, i) => { const k = Math.abs(i - q), sz = k < 1 ? 12 - 6 * k : Math.max(2, 7 - k); return 2 + (sz - 2) * amp; });
+    // sizes from bassDot: 12 level with the knob, then 6 … 0.5, gone
+    const lay = q => { const d = bassBars.map((_, i) => { const k = Math.abs(i - q), sz = bassDot(k); return 2 + (sz - 2) * amp; });
       let inner = 0; for (let i = 0; i < N - 1; i++) inner += d[i] / 2 + d[i + 1] / 2;
       const g = (yBot - yTop - inner) / (N - 1), c = [yTop]; for (let i = 1; i < N; i++) c.push(c[i - 1] + d[i - 1] / 2 + g + d[i] / 2);
       return { d, c }; };
@@ -2164,6 +2168,7 @@
     resync(); tick(660, 0.5);
   });
   setMode(0); applyMode(0, 0); pending = null;
+  if (Q.has('helpdemo')) setTimeout(() => document.querySelector('.help').click(), 1500);   // testing: help on by itself
 
   let lastPos = null;
   // which help hints would do something right now (Darius: a hint shows only when its action would change things)
@@ -2176,7 +2181,7 @@
       sy.tones.mel !== d.tones.mel || sy.tones.smel !== d.tones.smel || Math.abs(st.bpm - d.bpm) > 0.5;
     const fp = filtPos(t), filtOff = Math.hypot(fp.x - 0.5, fp.y - 0.5) > 0.02;
     stage.classList.toggle('can-clear', padHas); stage.classList.toggle('can-seq', seqOff);
-    stage.classList.toggle('can-filt', filtOff); stage.classList.toggle('can-hold', playing && !tapeOn(t) && tapePtr == null);
+    stage.classList.toggle('can-filt', filtOff); stage.classList.toggle('can-go', !!firstPlayT); stage.classList.toggle('can-hold', playing && !tapeOn(t) && tapePtr == null);
   }
   function frame() {
     const t = now();
