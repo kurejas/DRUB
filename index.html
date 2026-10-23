@@ -2046,6 +2046,9 @@
     const st = STYLES[shown], sy = snd();
     loops[shown][1] = [...st.k].map(Number); loops[shown][2] = [...st.s].map(Number); loops[shown][3] = [...st.h].map(Number);
     sy.m.splice(0, sy.m.length, ...DEF[shown].m); muted.fill(false);
+    // and the style's own sound and tempo (Darius): everything as it first loads
+    sy.tones.mel = DEF[shown].tones.mel; sy.tones.smel = DEF[shown].tones.smel; toneGo(toneIdx());
+    setBpm(DEF[shown].bpm);
     resync(); tick(660, 0.5);
   });
   setMode(0); applyMode(0, 0); pending = null;
