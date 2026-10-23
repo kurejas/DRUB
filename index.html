@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-title" content="DRUB">
 <meta name="application-name" content="DRUB">
 <title>DRUB</title>
-<meta name="drub-build" content="20261023062303">
+<meta name="drub-build" content="20261023062612">
 <script>
   // stale copies (GitHub Pages lets browsers keep a page 10 minutes; a home-screen app keeps its own): on launch, ask
   // the server for the current build without any cache, and if it is newer, reload once
@@ -108,7 +108,7 @@
   /* help: the page-colour mode next to the logo (Figma "step 1." 89:3646): LIGHT, DARK or MIXED, 16 px, cap line 46.5,
      widest beside the logo and 25 narrower per letter away from it */
   .themehint { left: 71px; top: calc(46.5px + var(--top)); font-size: 16px; color: var(--ink); pointer-events: none;
-               opacity: 0; transition: opacity 0.4s ease; }
+               opacity: 0; transition: opacity 0.6s ease-in-out; }
   html.helpon .themehint { opacity: 1; }
   .help { top: calc(43.5px + var(--top)); right: 49.5px; transform: translateX(50%); font-size: 24px; }
   /* help is off by default: the ? as a 1 px outline, no fill (Figma 42:2930, inside border); filled once help exists */
@@ -123,9 +123,9 @@
      initial in Safari and cut the letters' tops and bottoms on iPhone) */
   /* the added letters open to their own width (a grid column from 0fr to 1fr) and fade in as they do, and back */
   .t .more { display: inline-grid; grid-template-columns: 0fr; opacity: 0; vertical-align: baseline; white-space: nowrap;
-             clip-path: inset(-0.5em 0 -0.5em 0); transition: grid-template-columns 0.4s ease, opacity 0.4s ease; }
+             clip-path: inset(-0.5em 0 -0.5em 0); transition: grid-template-columns 0.5s ease-in-out, opacity 0.6s ease-in-out; }
   .t .more > .mi { min-width: 0; }
-  .t .hl { --lw: var(--off, 150); font-variation-settings: "wdth" var(--lw), "opsz" 28; transition: --lw 0.4s ease; }
+  .t .hl { --lw: var(--off, 150); font-variation-settings: "wdth" var(--lw), "opsz" 28; transition: --lw 0.5s ease-in-out; }
   .t .more .hl { --lw: 50; }
   html.helpon .t .more { grid-template-columns: 1fr; opacity: 1; }
   html.helpon .t .hl { --lw: var(--on); }
@@ -205,14 +205,14 @@
   .stage:not([data-mode="3"]) .bass { pointer-events: none; }
   /* the note column (Figma "iPhone 17 - 37" at rest, "- 41" pushed to the top): a dot level with each note the knob can
      land on, 53 px left of it; 2 px at rest, swelling toward the knob as soon as it is pushed off the middle
-     (12 px level with it, 8 either side, then 1 px less per note, down to the resting 2) */
+     (12 px level with it, 6 either side, then 5, 4 … down to the resting 2) */
   .bass .bar { position: absolute; left: 148px; border-radius: 50%; background: var(--paper); transform: translate(-50%, -50%); }
   .bass .tick { position: absolute; left: 146px; height: 1.5px; margin-top: -0.75px; background: #fff; }
   .bass .t { font-size: 11px; }
   /* the bass sound's name (SUB, ACID, GROWL, UPRIGHT): help only (Figma "iPhone 17 - 24" 89:3334), 16 px, centred on the
      knob 35.5 px above the top note, riding up with an overdrag; set like the style names; tap it for the next sound */
   .bass .tone { left: 201px; transform: translate(-50%, -50%); cursor: pointer; font-size: 16px; opacity: 0;
-                pointer-events: none; transition: opacity 0.4s ease; }
+                pointer-events: none; transition: opacity 0.6s ease-in-out; }
   html.helpon .bass .tone { opacity: 1; pointer-events: auto; }
   .bass .note { left: 232px; transform: translateY(-50%); font-size: 12px; }
   .bass .note2 { left: 160px; transform: translate(-50%, -50%); font-size: 9px; }
@@ -263,12 +263,12 @@
   .pad .lbl.small { font-size: 16px; }
   /* help: HOLD TO CLEAR under the pad (Figma "step 2." 85:3077), 16 px, set like the style names (wordWidths) */
   .pad .padhint { position: absolute; left: 161px; top: 362px; transform: translateX(-50%); font-size: 16px; color: var(--ink);
-                  pointer-events: none; opacity: 0; transition: opacity 0.4s ease; }
+                  pointer-events: none; opacity: 0; transition: opacity 0.6s ease-in-out; }
   html.helpon .stage.can-clear .pad .padhint { opacity: 1; }   /* only when holding would clear something (helpState) */
   /* help: DOUBLE-TAP TO RESET where a double tap resets (the Sequencer: the pattern, sound and tempo; the Filter: back to
      the middle), placed by placeHints() as the shapes resize */
   .figure .dthint { position: absolute; left: 201px; transform: translate(-50%, -50%); font-size: 16px; pointer-events: none;
-                    opacity: 0; transition: opacity 0.4s ease; z-index: 2; }
+                    opacity: 0; transition: opacity 0.6s ease-in-out; z-index: 2; }
   .figure .dthint.seq-h { color: var(--ink); }              /* on the page, under the band's bottom tip */
   .figure .dthint.filt-h { color: var(--paper); }           /* in the square, bottom middle: RESONANCE's mirror */
   .figure .dthint.tape-h { color: var(--ink); }
@@ -1644,7 +1644,8 @@
     // Figma 67:2831: 13 dots from the top end to the bottom one (stretching with an overdrag), an equal gap between
     // their edges, so the small ones sit closer; sized by distance from the knob, the biggest level with it
     const yTop = noteY(10) - ext[0], yBot = noteY(0) + ext[1], ky = noteY(v), N = bassBars.length;
-    const lay = q => { const d = bassBars.map((_, i) => { const k = Math.abs(i - q), sz = k < 1 ? 12 - 4 * k : Math.max(2, 9 - k); return 2 + (sz - 2) * amp; });
+    // sizes: 12 level with the knob, then 6, 5, 4 … (Darius)
+    const lay = q => { const d = bassBars.map((_, i) => { const k = Math.abs(i - q), sz = k < 1 ? 12 - 6 * k : Math.max(2, 7 - k); return 2 + (sz - 2) * amp; });
       let inner = 0; for (let i = 0; i < N - 1; i++) inner += d[i] / 2 + d[i + 1] / 2;
       const g = (yBot - yTop - inner) / (N - 1), c = [yTop]; for (let i = 1; i < N; i++) c.push(c[i - 1] + d[i - 1] / 2 + g + d[i] / 2);
       return { d, c }; };
