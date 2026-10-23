@@ -1426,7 +1426,7 @@
         const xl = x0 + dd * S(u, right ? 13 : 30), xr = x0 + dd * S(u, right ? 30 : 13);
         const r0 = dotEls[knTrip.to].getBoundingClientRect(), rowY = r0.top - sr.top + r0.height / 2;
         x += ((xl + xr) / 2 - x) * v; y += (rowY - y) * v;
-        w = d + (Math.abs(xr - xl) + 8 - d) * v; h = d + (8 - d) * v;
+        w = d + (Math.abs(xr - xl) + 12 - d) * v; h = d + (12 - d) * v;   // lands as the 12 px active dot
       }
     }
     dotEls.forEach(el => {                                     // a dot the marker touches gives way to it (no white-on-white)
@@ -1923,7 +1923,7 @@
   let pending = null;                                          // { mode, t }: the screen waiting for its beat
   function setMode(m) {
     mode = m;
-    dotEls.forEach((el, i) => { const d = [8, 6, 4, 2, 1, 0.5][Math.min(5, Math.abs(i - mode))]; el.style.setProperty('--d', d + 'px'); });
+    dotEls.forEach((el, i) => { const d = [12, 6, 4, 2, 1, 0.5][Math.min(5, Math.abs(i - mode))]; el.style.setProperty('--d', d + 'px'); });   // active 12 (Figma 10:737)
     modesBtn.setAttribute('aria-label', `Screen ${mode + 1} of 6. Next screen`);
     const t = now(), b = beats(t), next = Math.ceil(b + 0.02);
     pending = { mode, t: still || !playing ? t : seg.t0 + (next - seg.b0) / seg.bps };
