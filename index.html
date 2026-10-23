@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-title" content="DRUB">
 <meta name="application-name" content="DRUB">
 <title>DRUB</title>
-<meta name="drub-build" content="20261023101929">
+<meta name="drub-build" content="20261023102112">
 <script>
   // stale copies (GitHub Pages lets browsers keep a page 10 minutes; a home-screen app keeps its own): on launch, ask
   // the server for the current build without any cache, and if it is newer, reload once
@@ -188,14 +188,16 @@
   .figure.idle .shape { cursor: pointer; }
   .shape path { fill: var(--ink); }
   .shape .gap { fill: var(--paper); }                         /* tape stop: the page showing between its two blocks */   /* colours switch instantly, on the beat, as in v1 */
-  .bubbles { position: absolute; inset: 0; transform-origin: 201px 201px; }
+  /* the layer blends, not each bubble: it moves and scales (a group of its own), so bubbles blending one by one only
+     saw each other and stayed white (invisible on DARK mode's white triangle) */
+  .bubbles { position: absolute; inset: 0; transform-origin: 201px 201px; mix-blend-mode: difference; }
   /* the start screen (Figma "step 1." 42:3232): before the first tap only the knob is out, and START sits on the
      triangle's centre, 16 px, each letter narrower than the last; it pinches away on the tap and comes back on a stop */
   /* only with help on (Darius), and only until the first play; it pinches in and out with help (helpAt) */
   .start { left: 201.5px; top: 201px; font-size: 16px; color: #fff; mix-blend-mode: difference; transform: translate(-50%, -50%);
            pointer-events: none; }
   .bub { position: absolute; top: 201px; left: 0; width: 24px; height: 24px; margin: -12px 0 0 -12px; border-radius: 50%;
-         background: #fff; mix-blend-mode: difference; will-change: transform; }
+         background: #fff; will-change: transform; }
 
   /* Step 2, the pad (Figma "step 2."): a 322 px white circle, blurred and pulsing with the beat; K on the top half,
      S on the bottom, H in a 30 px disc at the centre with a 44 px tap zone. Around the rim the loop: 32 steps from
