@@ -190,13 +190,17 @@
   .bass .bar { position: absolute; left: 148px; border-radius: 50%; background: var(--paper); transform: translate(-50%, -50%); }
   .bass .tick { position: absolute; left: 146px; height: 1.5px; margin-top: -0.75px; background: #fff; }
   .bass .t { font-size: 11px; }
-  .bass .tone { left: 201px; transform: translate(-50%, -50%); cursor: pointer; }
+  /* the bass sound's name (SUB, ACID, GROWL, UPRIGHT): help only (Figma "iPhone 17 - 24" 89:3334), 16 px, centred on the
+     knob 35.5 px above the top note, riding up with an overdrag; set like the style names; tap it for the next sound */
+  .bass .tone { left: 201px; transform: translate(-50%, -50%); cursor: pointer; font-size: 16px; opacity: 0;
+                pointer-events: none; transition: opacity 0.25s ease; }
+  html.helpon .bass .tone { opacity: 1; pointer-events: auto; }
   .bass .note { left: 232px; transform: translateY(-50%); font-size: 12px; }
   .bass .note2 { left: 160px; transform: translate(-50%, -50%); font-size: 9px; }
   .bass .dot2 { position: absolute; left: 201px; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%;
                 background: #fff; mix-blend-mode: difference; }
   .bass .acc { text-transform: none; font-size: 0.7em; }
-  .bass .tick, .bass .tone, .bass .note2 { display: none; }  /* no ticks or sound name for now (Darius) */
+  .bass .tick, .bass .note2 { display: none; }              /* no ticks (Darius) */
   /* the note beside the knob (Figma 56:3504): 16 px, the letter at width 150, the rest at 125, 7 px right of the knob */
   .bass .note { left: 220px; font-size: 16px; }
   /* Filter (Figma "iPhone 17 - 30", 56:3377): a black 402 px square, edge to edge, and a 5 × 5 field of dots that
@@ -1584,11 +1588,12 @@
   const bassBars = [];
   for (let n = 0; n <= 10; n++) { const i = document.createElement('i'); i.className = 'bar'; bassEl.prepend(i); bassBars.push(i); }
   for (let n = 0; n <= 10; n++) { const i = document.createElement('i'); i.className = 'tick'; i.style.top = noteY(n) + 'px'; i.style.width = (n % 5 === 0 ? 12 : 7) + 'px'; bassEl.prepend(i); }
-  toneEl.style.top = (noteY(10) - 34).toFixed(1) + 'px';
+  toneEl.style.top = (noteY(10) - 35.5).toFixed(1) + 'px';
   function bassRender(t) {
     const ext = bassExt(t), v = bassShown(t);
-    toneEl.textContent = kitNow() ? 'UPRIGHT' : BASS_TONES[bassTone[shown]];
-    toneEl.style.top = (noteY(10) - 34 - ext[0]).toFixed(1) + 'px';
+    const tn = kitNow() ? 'UPRIGHT' : BASS_TONES[bassTone[shown]];
+    if (toneEl.dataset.w !== tn) { toneEl.dataset.w = tn; const ws = wordWidths(tn); toneEl.innerHTML = [...tn].map((c, i) => `<span style="--w: ${ws[i]}">${c}</span>`).join(''); }
+    toneEl.style.top = (noteY(10) - 35.5 - ext[0]).toFixed(1) + 'px';
     const lbl = noteLabel(Math.round(Math.max(0, Math.min(10, v))));
     if (noteEl.innerHTML !== lbl) noteEl.innerHTML = lbl;
     noteEl.style.top = noteY(v).toFixed(1) + 'px';
