@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-title" content="DRUB">
 <meta name="application-name" content="DRUB">
 <title>DRUB</title>
-<meta name="drub-build" content="20261023102621">
+<meta name="drub-build" content="20261023103112">
 <script>
   // stale copies (GitHub Pages lets browsers keep a page 10 minutes; a home-screen app keeps its own): on launch, ask
   // the server for the current build without any cache, and if it is newer, reload once
@@ -107,11 +107,17 @@
   .help { top: calc(43.5px + var(--top)); right: 49.5px; transform: translateX(50%); font-size: 24px; }
   /* help is off by default: the ? as a 1 px outline, no fill (Figma 42:2930, inside border); filled once help exists */
   .help:not(.on) { color: transparent; -webkit-text-stroke: 1px var(--ink); }
-  /* the first-visit hint: a wobble like the guitar's strum, tipping about its foot and settling (it keeps its
-     translateX(50%) centring) */
-  @keyframes helpShake { 0%, 100% { transform: translateX(50%) rotate(0); } 15% { transform: translateX(50%) rotate(-9deg); }
-    35% { transform: translateX(50%) rotate(7deg); } 55% { transform: translateX(50%) rotate(-4deg); } 75% { transform: translateX(50%) rotate(2deg); } }
-  .help.peek { animation: helpShake 0.6s ease-in-out; transform-origin: 50% 95%; }
+  /* the first-visit hint: the ? crouches, hops up thinning to its narrowest width and tipping back, lands with a squash
+     at full width, then wobbles about its foot like the guitar's strum and settles (it keeps its translateX(50%) centring) */
+  @keyframes helpShake {
+    0%, 100% { transform: translateX(50%) translateY(0) rotate(0) scale(1, 1); font-variation-settings: "wdth" 150, "opsz" 28; }
+    12% { transform: translateX(50%) translateY(0) rotate(0) scale(1.12, 0.82); font-variation-settings: "wdth" 150, "opsz" 28; }
+    30% { transform: translateX(50%) translateY(-16px) rotate(-16deg) scale(0.94, 1.14); font-variation-settings: "wdth" 75, "opsz" 28; }
+    46% { transform: translateX(50%) translateY(0) rotate(12deg) scale(1.14, 0.84); font-variation-settings: "wdth" 150, "opsz" 28; }
+    60% { transform: translateX(50%) translateY(-3px) rotate(-8deg) scale(1, 1); font-variation-settings: "wdth" 110, "opsz" 28; }
+    73% { transform: translateX(50%) translateY(0) rotate(5deg) scale(1, 1); font-variation-settings: "wdth" 150, "opsz" 28; }
+    86% { transform: translateX(50%) translateY(0) rotate(-2deg) scale(1, 1); font-variation-settings: "wdth" 150, "opsz" 28; } }
+  .help.peek { animation: helpShake 1.1s cubic-bezier(.3, 0, .3, 1); transform-origin: 50% 95%; }
   .help { cursor: pointer; z-index: 3; }
   .help::before { content: ''; position: absolute; inset: -14px -16px; }   /* a 48 px tap zone */
   /* Help on: every initial spells out its word (K → KICK). The added letters open out of the initial on the width
@@ -2202,7 +2208,7 @@
   const helpBtn = document.querySelector('.help');
   helpBtn.addEventListener('click', () => { markUsed('help'); helpBtn.classList.remove('peek'); });
   setTimeout(() => { if (!used('help')) helpBtn.classList.add('peek'); }, 3200);
-  setTimeout(() => helpBtn.classList.remove('peek'), 3900);
+  setTimeout(() => helpBtn.classList.remove('peek'), 4400);
   setMode(0); applyMode(0, 0); pending = null;
   if (Q.has('helpdemo')) setTimeout(() => document.querySelector('.help').click(), 1500);   // testing: help on by itself
 
