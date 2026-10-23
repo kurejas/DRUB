@@ -92,7 +92,7 @@
   .logo { position: absolute; left: 40px; top: calc(40px + var(--top)); width: 24px; height: 24px;
           cursor: pointer; z-index: 3; }
   .logo::before { content: ''; position: absolute; inset: -12px; }   /* a 48 px tap zone round the 24 px mark */
-  .logo svg { display: block; }
+  .logo svg { display: block; overflow: visible; }
   .help { top: calc(43.5px + var(--top)); right: 49.5px; transform: translateX(50%); font-size: 24px; }
   /* help is off by default: the ? as a 1 px outline, no fill (Figma 42:2930, inside border); filled once help exists */
   .help:not(.on) { color: transparent; -webkit-text-stroke: 1px var(--ink); }
@@ -306,15 +306,14 @@
 <body>
 <main class="stage" data-mode="0" aria-label="One Shape">
   <div class="logo" role="button" tabindex="0" aria-label="Page colours: alternating. Tap to change">
-    <!-- Figma 56:3349's red, green and blue dots, blended (difference, then luminosity) to greys; drawn here as those
-         greys directly, since iPhone Safari leaves the colours showing through the blend -->
+    <!-- the page-colour switch (Figma "step 1." 89:3342): alternating pages = two overlapping circles in the page's
+         opposite colour, their lens in the page colour; one colour for every page = a single 24 px circle (89:3636).
+         Drawn from the page-colour tokens (no blending); logoMorph() slides one into the other -->
     <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
-      <defs><clipPath id="lgA"><circle cx="12" cy="7" r="7"/></clipPath><clipPath id="lgC"><circle cx="17" cy="17" r="7"/></clipPath></defs>
-      <circle cx="12" cy="7" r="7" fill="#4d4d4d"/><circle cx="7" cy="17" r="7" fill="#969696"/><circle cx="17" cy="17" r="7" fill="#1c1c1c"/>
-      <circle cx="7" cy="17" r="7" fill="#e3e3e3" clip-path="url(#lgA)"/>
-      <circle cx="17" cy="17" r="7" fill="#696969" clip-path="url(#lgA)"/>
-      <circle cx="7" cy="17" r="7" fill="#b3b3b3" clip-path="url(#lgC)"/>
-      <g clip-path="url(#lgA)"><circle cx="7" cy="17" r="7" fill="#fff" clip-path="url(#lgC)"/></g>
+      <defs><clipPath id="lgB"><circle class="lbc" cx="16.33" cy="12" r="10.17"/></clipPath></defs>
+      <circle class="la" cx="7.67" cy="12" r="10.17" style="fill: var(--ink)"/>
+      <circle class="lb" cx="16.33" cy="12" r="10.17" style="fill: var(--ink)"/>
+      <circle class="ll" cx="7.67" cy="12" r="10.17" clip-path="url(#lgB)" style="fill: var(--paper)"/>
     </svg>
   </div>
   <p class="t help" aria-label="Help">?</p>
@@ -1984,8 +1983,23 @@
     if (pageTheme === 0) { pageTheme = 1; pageDark = !cur; }
     else if (pageTheme === 1) { pageTheme = 2; pageDark = !pageDark; }
     else pageTheme = 0;
-    paint(m); tick(pageTheme ? 560 : 700, 0.4);
+    paint(m); tick(pageTheme ? 560 : 700, 0.4); logoMorph(pageTheme ? 1 : 0);
     logoEl.setAttribute('aria-label', `Page colours: ${pageTheme ? (pageDark ? 'all black' : 'all white') : 'alternating'}. Tap to change`);
+  }
+  // the logo between its two states: the circles slide together and grow into one as the lens fades (and back)
+  const lgA = logoEl.querySelector('.la'), lgB = logoEl.querySelector('.lb'), lgBc = logoEl.querySelector('.lbc'), lgL = logoEl.querySelector('.ll');
+  let lgS = 0, lgRaf = 0;
+  function logoDraw(k) {
+    const a = 7.67 + 4.33 * k, b = 16.33 - 4.33 * k, r = 10.17 + 1.83 * k;
+    for (const c of [lgA, lgL]) { c.setAttribute('cx', a.toFixed(2)); c.setAttribute('r', r.toFixed(2)); }
+    for (const c of [lgB, lgBc]) { c.setAttribute('cx', b.toFixed(2)); c.setAttribute('r', r.toFixed(2)); }
+    lgL.style.opacity = Math.max(0, 1 - 1.6 * k).toFixed(3);
+  }
+  function logoMorph(to) {
+    cancelAnimationFrame(lgRaf); const from = lgS, t0 = performance.now(), D = 250;
+    const step = () => { const u = Math.min(1, (performance.now() - t0) / D), e = 1 - Math.pow(1 - u, 3);
+      lgS = from + (to - from) * e; logoDraw(lgS); if (u < 1) lgRaf = requestAnimationFrame(step); };
+    step();
   }
   logoEl.addEventListener('click', cycleTheme);
   logoEl.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cycleTheme(); } });
