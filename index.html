@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-title" content="DRUB">
 <meta name="application-name" content="DRUB">
 <title>DRUB</title>
-<meta name="drub-build" content="20261023061734">
+<meta name="drub-build" content="20261023062137">
 <script>
   // stale copies (GitHub Pages lets browsers keep a page 10 minutes; a home-screen app keeps its own): on launch, ask
   // the server for the current build without any cache, and if it is newer, reload once
@@ -271,7 +271,15 @@
                     opacity: 0; transition: opacity 0.4s ease; z-index: 2; }
   .figure .dthint.seq-h { color: var(--ink); }              /* on the page, under the band's bottom tip */
   .figure .dthint.filt-h { color: var(--paper); }           /* in the square, bottom middle: RESONANCE's mirror */
-  .figure .dthint.tape-h { color: var(--ink); }            /* on the page, under the blocks: HOLD (the tape stop) */
+  .figure .dthint.tape-h { color: var(--ink); }
+  /* help, first screen: SWIPE → / PRESS → under the triangle (where Figma "step 1." 89:3966 has GO →), a button to the next screen (tap, click,
+     or the → key / a swipe as ever) */
+  .figure .dthint.go-h { color: var(--ink); cursor: pointer; }
+  html.helpon .stage[data-mode="0"] .dthint.go-h { opacity: 1; pointer-events: auto; }
+  .figure .dthint.go-h::before { content: ''; position: absolute; inset: -14px -20px; }   /* a bigger tap zone */
+  /* touch screens (phones, tablets) say SWIPE →; a mouse and keyboard, PRESS → (the arrow key) */
+  .go-h .go-touch { display: none; }
+  @media (hover: none) and (pointer: coarse) { .go-h .go-touch { display: inline; } .go-h .go-keys { display: none; } }            /* on the page, under the blocks: HOLD (the tape stop) */
   /* each only when doing it would change something (helpState): a reset when not at the defaults, a hold while it plays */
   html.helpon .stage[data-mode="2"].can-seq .dthint.seq-h, html.helpon .stage[data-mode="4"].can-filt .dthint.filt-h,
   html.helpon .stage[data-mode="5"].can-hold .dthint.tape-h { opacity: 1; }
@@ -731,8 +739,11 @@
   const spelled = w => { const ws = wordWidths(w); return [...w].map((c, i) => `<span style="--w: ${ws[i]}">${c === ' ' ? '&nbsp;' : c}</span>`).join(''); };
   fig.insertAdjacentHTML('beforeend', `<p class="t dthint seq-h" aria-hidden="true">${spelled('DOUBLE-TAP RESETS')}</p>` +
     `<p class="t dthint filt-h" aria-hidden="true">${spelled('DOUBLE-TAP RESETS')}</p>` +
-    `<p class="t dthint tape-h" aria-hidden="true">${spelled('HOLD')}</p>`);
-  const seqHint = fig.querySelector('.seq-h'), filtHint = fig.querySelector('.filt-h'), tapeHint = fig.querySelector('.tape-h');
+    `<p class="t dthint tape-h" aria-hidden="true">${spelled('HOLD')}</p>` +
+    `<p class="t dthint go-h" role="button" aria-label="Next screen"><span class="go-touch">SWIPE&nbsp;→</span><span class="go-keys">PRESS&nbsp;→</span></p>`);
+  const seqHint = fig.querySelector('.seq-h'), filtHint = fig.querySelector('.filt-h'), tapeHint = fig.querySelector('.tape-h'), goHint = fig.querySelector('.go-h');
+  goHint.addEventListener('pointerdown', e => e.stopPropagation());
+  goHint.addEventListener('click', e => { e.stopPropagation(); stepMode(1); });
   // the Sequencer's sits under the band; the Filter's in the square's
   // bottom middle, where RESONANCE sits at the top
   function placeHints() {
@@ -740,6 +751,7 @@
     seqHint.style.top = (bandB + 10 + 20 + 5.5).toFixed(1) + 'px';
     filtHint.style.top = (201 + FY + FH * 2 / 3).toFixed(1) + 'px';   // the grid's bottom row, middle column (fgy(1))
     tapeHint.style.top = (201 + FY + Math.min(322, 2 * FH) / 2 + 36).toFixed(1) + 'px';   // under the blocks at rest
+    goHint.style.top = (415 + 5.5).toFixed(1) + 'px';         // cap line 651 on the 874 frame: 415 in the figure
   }
   placeHints(); addEventListener('resize', placeHints);
   { const w = 'HOLD TO CLEAR', ws = wordWidths(w);
