@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-title" content="DRUB">
 <meta name="application-name" content="DRUB">
 <title>DRUB</title>
-<meta name="drub-build" content="20261023102112">
+<meta name="drub-build" content="20261023102621">
 <script>
   // stale copies (GitHub Pages lets browsers keep a page 10 minutes; a home-screen app keeps its own): on launch, ask
   // the server for the current build without any cache, and if it is newer, reload once
@@ -724,13 +724,21 @@
 
   const IMP = (tau, w) => tau < 0 ? 0 : w * tau * Math.exp(1 - w * tau);   // a kick: peaks at 1 when tau = 1/w
 
-  /* ---------- tempo bars: a new arrangement on every 16th, springing; full height on the beat ---------- */
-  const BARS = [8, 24, 18, 6], barEls = [...document.querySelectorAll('.bars i')];
-  const barSet = n => BARS.map((_, i) => BARS[(i + n) % 4] * (n % 4 === 0 ? 1 : 0.78));
-  // stopped: four 4 px dots (silence); on start they spring up into the moving bars
+  /* ---------- tempo bars: one bar per part (kick, snare, hat, melody), jumping when that part plays and falling back ---------- */
+  const BAR_LANE = [1, 2, 3, 0], BAR_PEAK = [24, 18, 12, 16], BAR_FALL = [9, 11, 16, 7], barEls = [...document.querySelectorAll('.bars i')];
   // stopped: four 4 px dots on the bars' baseline (the bottom of the tallest bar). On play they rise to the middle line and
   // grow into the moving bars; on a pause the bars shrink back into dots and settle on the baseline, on a spring both ways
   let barStop = null;                                         // { t, h: [heights at the pause] }
+  function barEnv(lane, q, i) {                               // 0..1: how loud this part is right now, from its last hit
+    if (muted[lane]) return 0;
+    const n = Math.floor(q);
+    for (let back = 0; back < 16 && n - back >= 0; back++) {
+      if (!seqOn(lane, n - back)) continue;
+      const tau = (q - (n - back)) / (4 * seg.bps);           // seconds since the hit
+      return tau < 0.025 ? tau / 0.025 : Math.exp(-(tau - 0.025) * BAR_FALL[i]);
+    }
+    return 0;
+  }
   function bars(t) {
     const up = playing ? S(t - playT, 30) : barStop ? 1 - S(t - barStop.t, 24) : 0;
     const top = (30 - 10 * up).toFixed(2) + 'px';
@@ -740,9 +748,8 @@
       barEls.forEach((el, i) => { const h0 = barStop ? barStop.h[i] : 4; el.style.height = Math.max(4, h0 + (4 - h0) * k).toFixed(2) + 'px'; });
       return;
     }
-    const q = beats(t) * 4, n = Math.floor(q), tau = (q - n) / (4 * seg.bps), b = barSet(n), k = S(tau, 34);
-    const a = n === 0 ? [4, 4, 4, 4] : barSet(n - 1), grow = S(t - playT, 22);   // they grow in from the dots
-    barEls.forEach((el, i) => { el.style.height = Math.max(4, 4 + (a[i] + (b[i] - a[i]) * k - 4) * grow).toFixed(2) + 'px'; });
+    const q = beats(t) * 4, grow = S(t - playT, 22);          // they grow in from the dots
+    barEls.forEach((el, i) => { el.style.height = Math.max(4, 4 + (BAR_PEAK[i] - 4) * barEnv(BAR_LANE[i], q, i) * grow).toFixed(2) + 'px'; });
   }
 
   /* ---------- the pad (step 2): the loop around the rim, hits from the halves and the H zone ---------- */
