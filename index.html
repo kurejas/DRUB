@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-title" content="DRUB">
 <meta name="application-name" content="DRUB">
 <title>DRUB</title>
-<meta name="drub-build" content="20261023064037">
+<meta name="drub-build" content="20261023064437">
 <script>
   // stale copies (GitHub Pages lets browsers keep a page 10 minutes; a home-screen app keeps its own): on launch, ask
   // the server for the current build without any cache, and if it is newer, reload once
@@ -163,7 +163,10 @@
      blend, like the bubbles: black on the page, white where the triangle passes behind them. */
   .switch { position: absolute; left: 0; right: 0; top: calc(196px + var(--top)); height: 12px; z-index: 1;
             mix-blend-mode: difference; }
-  .switch .t { left: 0; top: 0; font-size: 16px; color: #fff; will-change: transform; }
+  .switch .t { left: 0; top: 6px; font-size: 16px; color: #fff; will-change: transform; }
+  /* Safari draws a blended strip in a layer clipped to its box, and the box is only cap-height tall, so it cut the
+     letters' tops and bottoms: both strips get 6 px of room above and below (the text stays where it was) */
+  .switch, .tones { padding: 6px 0; margin-top: -6px; }
   .picker { position: absolute; left: 0; right: 0; top: calc(176px + var(--top)); height: 56px; touch-action: pan-y;
             z-index: 2; }
   .picker, .picker:active { cursor: ew-resize; }                 /* the same sideways cursor as the tempo and the key */
@@ -250,7 +253,7 @@
   .seq .t.mute { color: var(--ink); -webkit-text-stroke: 2px var(--paper); paint-order: stroke fill; }
   /* (the split itself glides with the band: see topSplit) */
   .tones { position: absolute; left: calc(50% + 24px); right: calc(50% - 154px); top: calc(196px + var(--top)); height: 12px; z-index: 1; mix-blend-mode: difference; }
-  .tones .t { top: 0; font-size: 16px; color: #fff; }
+  .tones .t { top: 6px; font-size: 16px; color: #fff; }
   .tpick { position: absolute; left: calc(50% + 24px); right: calc(50% - 154px); top: calc(176px + var(--top)); height: 56px; z-index: 2; cursor: ew-resize; touch-action: pan-y; }
   .tones { opacity: 0; } .tpick { pointer-events: none; }
   .pad { position: absolute; left: 40px; top: 40px; width: 322px; height: 322px; touch-action: none; cursor: pointer; }
