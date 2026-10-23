@@ -245,7 +245,7 @@
   /* help: HOLD TO CLEAR under the pad (Figma "step 2." 85:3077), 16 px, set like the style names (wordWidths) */
   .pad .padhint { position: absolute; left: 161px; top: 362px; transform: translateX(-50%); font-size: 16px; color: var(--ink);
                   pointer-events: none; opacity: 0; transition: opacity 0.25s ease; }
-  html.helpon .pad .padhint { opacity: 1; }
+  html.helpon .stage.can-clear .pad .padhint { opacity: 1; }   /* only when holding would clear something (helpState) */
   /* help: DOUBLE-TAP TO RESET where a double tap resets (the Sequencer: the pattern, sound and tempo; the Filter: back to
      the middle), placed by placeHints() as the shapes resize */
   .figure .dthint { position: absolute; left: 201px; transform: translate(-50%, -50%); font-size: 16px; pointer-events: none;
@@ -253,8 +253,9 @@
   .figure .dthint.seq-h { color: var(--ink); }              /* on the page, under the band's bottom tip */
   .figure .dthint.filt-h { color: var(--paper); }           /* in the square, bottom middle: RESONANCE's mirror */
   .figure .dthint.tape-h { color: var(--ink); }            /* on the page, under the blocks: HOLD (the tape stop) */
-  html.helpon .stage[data-mode="2"] .dthint.seq-h, html.helpon .stage[data-mode="4"] .dthint.filt-h,
-  html.helpon .stage[data-mode="5"] .figure:not(.idle) .dthint.tape-h { opacity: 1; }   /* HOLD only while it plays */
+  /* each only when doing it would change something (helpState): a reset when not at the defaults, a hold while it plays */
+  html.helpon .stage[data-mode="2"].can-seq .dthint.seq-h, html.helpon .stage[data-mode="4"].can-filt .dthint.filt-h,
+  html.helpon .stage[data-mode="5"].can-hold .dthint.tape-h { opacity: 1; }
   .pad .lbl.narrow { --w: 50; } .pad .lbl.narrow .hl { --lw: 50; }                                /* tapped: same size, narrowed on the width axis (Figma) */
   .pad .lbl.k.small { top: 93.9px; }  .pad .lbl.h.small { top: 155.4px; }  .pad .lbl.s.small { top: 217.4px; }
   .pad .base .dot { background: var(--paper); }
@@ -2092,8 +2093,21 @@
   setMode(0); applyMode(0, 0); pending = null;
 
   let lastPos = null;
+  // which help hints would do something right now (Darius: a hint shows only when its action would change things)
+  function helpState(t) {
+    if (!document.documentElement.classList.contains('helpon')) return;
+    const L = loops[shown], st = STYLES[shown], sy = snd(), d = DEF[shown];
+    const padHas = [1, 2, 3].some(l => L[l].some(Boolean));
+    const lane = (l, src) => L[l].some((v, i) => v !== +src[i % src.length]);
+    const seqOff = lane(1, st.k) || lane(2, st.s) || lane(3, st.h) || sy.m.some((v, i) => v !== d.m[i]) || muted.some(Boolean) ||
+      sy.tones.mel !== d.tones.mel || sy.tones.smel !== d.tones.smel || Math.abs(st.bpm - d.bpm) > 0.5;
+    const fp = filtPos(t), filtOff = Math.hypot(fp.x - 0.5, fp.y - 0.5) > 0.02;
+    stage.classList.toggle('can-clear', padHas); stage.classList.toggle('can-seq', seqOff);
+    stage.classList.toggle('can-filt', filtOff); stage.classList.toggle('can-hold', playing && !tapeOn(t) && tapePtr == null);
+  }
   function frame() {
     const t = now();
+    helpState(t);
     if (anim) { pos = anim.from + (anim.to - anim.from) * S(t - anim.t0, still ? 1e3 : 16); if (t - anim.t0 > 0.8) { pos = anim.to; anim = null; } }
     if (pos !== lastPos) { layoutStrip(); lastPos = pos; }
     if (pending && t >= pending.t) { applyMode(pending.mode, pending.t); pending = null; }
