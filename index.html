@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-title" content="DRUB">
 <meta name="application-name" content="DRUB">
 <title>DRUB</title>
-<meta name="drub-build" content="20261023063902">
+<meta name="drub-build" content="20261023064037">
 <script>
   // stale copies (GitHub Pages lets browsers keep a page 10 minutes; a home-screen app keeps its own): on launch, ask
   // the server for the current build without any cache, and if it is newer, reload once
@@ -2168,19 +2168,19 @@
     setBpm(DEF[shown].bpm);
     resync(); tick(660, 0.5);
   });
-  // First visit hints (Darius: people don't see that the styles scroll and the icon switches): ~2 s in, unless that
+  // First visit hints (Darius: people don't see that the styles scroll and the icon switches): ~1 s in, unless that
   // control itself has been touched (other taps don't count), the style strip slides a third of the way to the next style and springs back, and the icon half-morphs
   // to the other kit and back. On every visit; only a use of that control during this visit skips its hint.
   const usedNow = {}, used = k => !!usedNow[k], markUsed = k => { usedNow[k] = true; };
   picker.addEventListener('pointerdown', () => markUsed('style')); kitBtn.addEventListener('click', () => markUsed('kit'));
   let stripPeek = null;
   picker.addEventListener('pointerdown', () => { if (stripPeek) { pos = stripPeek.base; stripPeek = null; } }, true);
-  setTimeout(() => { if (!used('style') && !anim) stripPeek = { t0: now(), base: pos }; }, 2000);
+  setTimeout(() => { if (!used('style') && !anim) stripPeek = { t0: now(), base: pos }; }, 1000);
   setTimeout(() => {
     if (used('kit') || snd().kitLock != null || kitBtn.classList.contains('morphing')) return;
     const syn = !kitNow(), ez = x => x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
     kitMorph(syn, u => { const h = 0.5 * Math.sin(Math.PI * ez(u)); return syn ? 1 - h : h; }, 900);
-  }, 2900);
+  }, 2100);
   setMode(0); applyMode(0, 0); pending = null;
   if (Q.has('helpdemo')) setTimeout(() => document.querySelector('.help').click(), 1500);   // testing: help on by itself
 
@@ -2201,9 +2201,10 @@
     const t = now();
     helpState(t);
     if (anim) { pos = anim.from + (anim.to - anim.from) * S(t - anim.t0, still ? 1e3 : 16); if (t - anim.t0 > 0.8) { pos = anim.to; anim = null; } }
-    else if (stripPeek) {                                    // the first-visit peek: a third of the way on, and back
-      const u = (t - stripPeek.t0) / 0.9;
-      if (u >= 1) { pos = stripPeek.base; stripPeek = null; } else pos = stripPeek.base + 0.35 * Math.sin(Math.PI * u);
+    else if (stripPeek) {                                    // the first-visit peek: nearly halfway on, back, a little past
+      const u = (t - stripPeek.t0) / 0.8;                    // and settle (0.8 s out and back, 0.3 s of overshoot)
+      if (u >= 1.375) { pos = stripPeek.base; stripPeek = null; }
+      else pos = stripPeek.base + (u < 1 ? 0.45 * Math.sin(Math.PI * u) : -0.09 * Math.sin(Math.PI * (u - 1) / 0.375));
     }
     if (pos !== lastPos) { layoutStrip(); lastPos = pos; }
     if (pending && t >= pending.t) { applyMode(pending.mode, pending.t); pending = null; }
