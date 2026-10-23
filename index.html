@@ -127,16 +127,12 @@
   .kit .speaker { overflow: visible; }
   .kit .guitar { overflow: visible; } .kit .gt { transform-origin: 6px 19px; }   /* tips round its body */
   .kit .tw { transform-origin: 8.624px 5.958px; } .kit .wf { transform-origin: 8.624px 14.683px; }
-.kit:not(.synth) .speaker, .kit.synth .guitar { visibility: hidden; }
-  /* the switch morphs (Darius): the guitar's three dots travel and grow into the speaker's two cones (and back) while
-     one body shrinks away and the other grows in; .kmorph draws the travelling circles, the real icons' own dots and
-     cones wait hidden until it lands */
-  /* positioned (painted above the scaling bodies, no z-index so it is not cut off from them) and blended by difference
-     against them: a cone-hole over a body, a dot over the page */
-  .kit .kmorph { overflow: visible; visibility: hidden; position: relative; mix-blend-mode: difference; }
+  .kit:not(.synth) .speaker, .kit.synth .guitar { visibility: hidden; }
+  /* the switch morphs (Darius): the guitar's outline bends into the speaker's rounded rectangle (and back) while its
+     three dots travel and grow into the two cones; .kmorph draws it all in between, the real icons wait hidden */
+  .kit .kmorph { overflow: visible; visibility: hidden; }
   .kit.morphing .kmorph { visibility: visible; }
-  .kit.morphing .speaker, .kit.morphing .guitar { visibility: visible; }
-  .kit.morphing .tw, .kit.morphing .wf, .kit.morphing .gd { visibility: hidden; }
+  .kit.morphing .speaker, .kit.morphing .guitar { visibility: hidden; }   /* .kmorph draws the body in between */
   html.dark .face, .kit .guitar { filter: invert(1); }   /* the black SF Symbols turn white on the black page */
 
   /* Style picker: the names on one line, the chosen one centred and set wide in the middle (width 150, 25 narrower
@@ -981,25 +977,37 @@
   // the sound-source switch: v1's setKit. Dubstep keeps its recorded kit (as in v2); the choice holds for the other styles
   const kitBtn = document.querySelector('.kit');
   // the morph: each circle in the 64 px button's units, guitar dot → speaker cone (the top dot becomes the tweeter, the
-  // middle one the woofer, the last melts into it), and both bodies scaling about their centres
+  // middle one the woofer, the last melts into it), cut out of the body as it bends from one outline to the other
   const KM = [[33.2, 36.08, 0.62, 32.0, 26.79, 2.57], [33.85, 37.62, 0.62, 32.0, 35.51, 4.29], [34.52, 39.16, 0.62, 32.0, 35.51, 0]];   // the third shrinks into the woofer (two overlapping would cancel out)
   kitBtn.insertAdjacentHTML('beforeend', '<svg class="kmorph" width="64" height="64" viewBox="0 0 64 64" aria-hidden="true">' +
-    KM.map(() => '<circle r="0" fill="white"/>').join('') + '</svg>');
+    '<path class="kmb" fill="white"/>' + KM.map(() => '<circle r="0" fill="black"/>').join('') + '</svg>');
   const kmC = [...kitBtn.querySelectorAll('.kmorph circle')], kGuitar = kitBtn.querySelector('.guitar'), kSpeaker = kitBtn.querySelector('.speaker');
-  let kitSyn = null, kmRaf = 0;
+  let kitSyn = null, kmRaf = 0, kmPts = null;
+  const kmBody = kitBtn.querySelector('.kmb');
+  // both bodies' outlines as 160 matching points in the button's units, same winding, starts lined up, so one
+  // outline can bend straight into the other (the guitar into the speaker's rounded rectangle)
+  function kmOutlines() {
+    const N = 160, samp = (el, ox, oy) => { const L = el.getTotalLength(); return [...Array(N)].map((_, i) => { const q = el.getPointAtLength(L * i / N); return [q.x + ox, q.y + oy]; }); };
+    const area = P => P.reduce((a, p, i) => { const q = P[(i + 1) % P.length]; return a + p[0] * q[1] - q[0] * p[1]; }, 0);
+    const G = samp(kGuitar.querySelector('.gt path'), 26, 20); let S = samp(kSpeaker.querySelector('path'), 32 - 17.2368 / 2, 32 - 22.3433 / 2);
+    if (Math.sign(area(G)) !== Math.sign(area(S))) S.reverse();
+    let best = 0, bd = Infinity;
+    for (let k = 0; k < N; k++) { let d = 0; for (let i = 0; i < N; i += 4) { const a = G[i], b = S[(i + k) % N]; d += (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2; } if (d < bd) { bd = d; best = k; } }
+    return [G, G.map((_, i) => S[(i + best) % N])];
+  }
   function kitMorph(toSyn) {
     cancelAnimationFrame(kmRaf);
-    const t0 = performance.now(), D = 420, ez = x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+    if (!kmPts) try { kmPts = kmOutlines(); } catch (_) { return; }
+    const t0 = performance.now(), D = 300, ez = x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
     kitBtn.classList.add('morphing');
     const step = () => {
       const u = Math.min(1, (performance.now() - t0) / D), k = ez(u), g = toSyn ? k : 1 - k;   // g: 0 guitar … 1 speaker
       kmC.forEach((c, i) => { const [x0, y0, r0, x1, y1, r1] = KM[i];
         c.setAttribute('cx', (x0 + (x1 - x0) * g).toFixed(2)); c.setAttribute('cy', (y0 + (y1 - y0) * g).toFixed(2)); c.setAttribute('r', (r0 + (r1 - r0) * g).toFixed(2)); });
-      // the old body shrinks away over the first half while the dots set off; the new one grows in round them
-      const sIn = Math.max(0, Math.min(1, (g - 0.45) / 0.55)), gIn = Math.max(0, Math.min(1, (0.55 - g) / 0.55));
-      kSpeaker.style.transform = `scale(${sIn.toFixed(3)})`; kGuitar.style.transform = `scale(${gIn.toFixed(3)})`;
+      const [G, S] = kmPts;
+      kmBody.setAttribute('d', 'M' + G.map((p, i) => (p[0] + (S[i][0] - p[0]) * g).toFixed(2) + ' ' + (p[1] + (S[i][1] - p[1]) * g).toFixed(2)).join('L') + 'Z');
       if (u < 1) kmRaf = requestAnimationFrame(step);
-      else { kitBtn.classList.remove('morphing'); kSpeaker.style.transform = kGuitar.style.transform = ''; }
+      else kitBtn.classList.remove('morphing');
     };
     step();
   }
@@ -1617,7 +1625,7 @@
     const ky = kn ? kn.y : -99;                                 // the knob's own (sprung) height on the track
     seqMarks.forEach((m, beat) => { m.y = seqRowY(Math.min(31, beat * 4)); m.el.style.top = (m.y - 1).toFixed(2) + 'px'; m.el.style.opacity = Math.abs(m.y - ky) < 13 ? 0 : 1; });
     for (const h of seqHead) h.style.top = (seqTop0() - 34).toFixed(2) + 'px';
-    const ini = toneList()[toneIdx()][0], nm = toneList()[toneIdx()], mh = `<span class="mdash">M—</span>` + helpWord(nm, 100);
+    const ini = toneList()[toneIdx()][0], nm = toneList()[toneIdx()], mh = helpWord(nm, 100);   // just the sound's initial (no "M—", Darius); PLUCK in help
     if (seqHead[0].innerHTML !== mh) seqHead[0].innerHTML = mh;
     for (let lane = 0; lane < 4; lane++) {
       seqHead[lane].classList.toggle('mute', muted[lane]);
