@@ -127,7 +127,16 @@
   .kit .speaker { overflow: visible; }
   .kit .guitar { overflow: visible; } .kit .gt { transform-origin: 6px 19px; }   /* tips round its body */
   .kit .tw { transform-origin: 8.624px 5.958px; } .kit .wf { transform-origin: 8.624px 14.683px; }
-  .kit:not(.synth) .speaker, .kit.synth .guitar { visibility: hidden; }
+.kit:not(.synth) .speaker, .kit.synth .guitar { visibility: hidden; }
+  /* the switch morphs (Darius): the guitar's three dots travel and grow into the speaker's two cones (and back) while
+     one body shrinks away and the other grows in; .kmorph draws the travelling circles, the real icons' own dots and
+     cones wait hidden until it lands */
+  /* positioned (painted above the scaling bodies, no z-index so it is not cut off from them) and blended by difference
+     against them: a cone-hole over a body, a dot over the page */
+  .kit .kmorph { overflow: visible; visibility: hidden; position: relative; mix-blend-mode: difference; }
+  .kit.morphing .kmorph { visibility: visible; }
+  .kit.morphing .speaker, .kit.morphing .guitar { visibility: visible; }
+  .kit.morphing .tw, .kit.morphing .wf, .kit.morphing .gd { visibility: hidden; }
   html.dark .face, .kit .guitar { filter: invert(1); }   /* the black SF Symbols turn white on the black page */
 
   /* Style picker: the names on one line, the chosen one centred and set wide in the middle (width 150, 25 narrower
@@ -388,7 +397,7 @@
     for (let i = 0; i < 4; i++) FH = Math.max(80, Math.min(FW, (lim - Math.max(bandTop, H / 2 - FH)) / 2));
     FY = Math.max(0, bandTop - (H / 2 - FH));
     bandT = bandTop - H / 2 + 201;
-    bandB = Math.min(limF, top + lerpH([[640, 526], [874, 750], [1000, 876]], h) - H / 2 + 201);
+    bandB = Math.min(limF - 10, top + lerpH([[640, 526], [874, 750], [1000, 876]], h) - H / 2 + 201);
     fitN++;
   }
   addEventListener('resize', () => { fit(); lastPos = null; }); fit();
@@ -971,8 +980,33 @@
   }
   // the sound-source switch: v1's setKit. Dubstep keeps its recorded kit (as in v2); the choice holds for the other styles
   const kitBtn = document.querySelector('.kit');
+  // the morph: each circle in the 64 px button's units, guitar dot → speaker cone (the top dot becomes the tweeter, the
+  // middle one the woofer, the last melts into it), and both bodies scaling about their centres
+  const KM = [[33.2, 36.08, 0.62, 32.0, 26.79, 2.57], [33.85, 37.62, 0.62, 32.0, 35.51, 4.29], [34.52, 39.16, 0.62, 32.0, 35.51, 0]];   // the third shrinks into the woofer (two overlapping would cancel out)
+  kitBtn.insertAdjacentHTML('beforeend', '<svg class="kmorph" width="64" height="64" viewBox="0 0 64 64" aria-hidden="true">' +
+    KM.map(() => '<circle r="0" fill="white"/>').join('') + '</svg>');
+  const kmC = [...kitBtn.querySelectorAll('.kmorph circle')], kGuitar = kitBtn.querySelector('.guitar'), kSpeaker = kitBtn.querySelector('.speaker');
+  let kitSyn = null, kmRaf = 0;
+  function kitMorph(toSyn) {
+    cancelAnimationFrame(kmRaf);
+    const t0 = performance.now(), D = 420, ez = x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+    kitBtn.classList.add('morphing');
+    const step = () => {
+      const u = Math.min(1, (performance.now() - t0) / D), k = ez(u), g = toSyn ? k : 1 - k;   // g: 0 guitar … 1 speaker
+      kmC.forEach((c, i) => { const [x0, y0, r0, x1, y1, r1] = KM[i];
+        c.setAttribute('cx', (x0 + (x1 - x0) * g).toFixed(2)); c.setAttribute('cy', (y0 + (y1 - y0) * g).toFixed(2)); c.setAttribute('r', (r0 + (r1 - r0) * g).toFixed(2)); });
+      // the old body shrinks away over the first half while the dots set off; the new one grows in round them
+      const sIn = Math.max(0, Math.min(1, (g - 0.45) / 0.55)), gIn = Math.max(0, Math.min(1, (0.55 - g) / 0.55));
+      kSpeaker.style.transform = `scale(${sIn.toFixed(3)})`; kGuitar.style.transform = `scale(${gIn.toFixed(3)})`;
+      if (u < 1) kmRaf = requestAnimationFrame(step);
+      else { kitBtn.classList.remove('morphing'); kSpeaker.style.transform = kGuitar.style.transform = ''; }
+    };
+    step();
+  }
   function kitShow() {
     const syn = !kitNow();
+    if (kitSyn !== null && syn !== kitSyn && !matchMedia('(prefers-reduced-motion: reduce)').matches) kitMorph(syn);
+    kitSyn = syn;
     kitBtn.classList.toggle('synth', syn);
     kitBtn.setAttribute('aria-label', `Sound source: ${syn ? 'synth' : 'acoustic'}. Switch to ${syn ? 'acoustic' : 'synth'}`);
   }
@@ -1082,6 +1116,25 @@
     }
     return out;
   }
+  // any convex polygon with Figma-style rounded corners: an arc of radius r tangent to both edges at each vertex,
+  // smaller where an edge is too short for it (each corner takes at most half of each edge)
+  function roundPoly(V, r, n = 8) {
+    const out = [];
+    for (let i = 0; i < V.length; i++) {
+      const P = V[i], A = V[(i + V.length - 1) % V.length], B = V[(i + 1) % V.length];
+      const la = Math.hypot(A[0] - P[0], A[1] - P[1]), lb = Math.hypot(B[0] - P[0], B[1] - P[1]);
+      const u1 = [(A[0] - P[0]) / la, (A[1] - P[1]) / la], u2 = [(B[0] - P[0]) / lb, (B[1] - P[1]) / lb];
+      const th = Math.acos(Math.max(-1, Math.min(1, u1[0] * u2[0] + u1[1] * u2[1])));
+      const t = Math.min(r / Math.tan(th / 2), la / 2, lb / 2), rr = t * Math.tan(th / 2);
+      const bx = u1[0] + u2[0], by = u1[1] + u2[1], bl = Math.hypot(bx, by) || 1, h = rr / Math.sin(th / 2);
+      const C = [P[0] + bx / bl * h, P[1] + by / bl * h];
+      const T1 = [P[0] + u1[0] * t, P[1] + u1[1] * t], T2 = [P[0] + u2[0] * t, P[1] + u2[1] * t];
+      const a1 = Math.atan2(T1[1] - C[1], T1[0] - C[0]); let d = Math.atan2(T2[1] - C[1], T2[0] - C[0]) - a1;
+      while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+      for (let j = 0; j <= n; j++) out.push([C[0] + rr * Math.cos(a1 + d * j / n), C[1] + rr * Math.sin(a1 + d * j / n)]);
+    }
+    return out;
+  }
   function rayHit(cx, cy, dx, dy, V) {                         // distance from (cx, cy) along (dx, dy) to a convex polygon's edge
     let best = Infinity;
     for (let i = 0; i < V.length; i++) {
@@ -1163,7 +1216,11 @@
     // the Sequencer's band (Figma "iPhone 17 - 29", updated): an octagon 342 wide (x 30 … 372), corners cut 30 px, from
     // the band spans bandT … bandB (fit: Figma's frames at 640, 874 and 1000 tall)
     const bT = bandT, bB = bandB;
-    OCT = [[60, bT], [342, bT], [372, bT + 30], [372, bB - 30], [342, bB], [60, bB], [30, bB - 30], [30, bT + 30]];
+    // the band (Figma 56:4032 "bg"): a gem with every corner rounded 50, peaks 10 px past the band's top and bottom
+    // at the centre, shoulders at x 30 / 372 (15 below the top, 20 above the bottom), points at the screen's edges
+    // halfway down
+    const pT = bT - 10, pB = bB + 10, sT = bT + 15, sB = bB - 20, mY = (pT + pB) / 2;
+    OCT = roundPoly([[201, pT], [372, sT], [402, mY], [372, sB], [201, pB], [30, sB], [0, mY], [30, sT]], 50);
     const V = triVerts(spin);
     const collapse = MORPH === 3;
     const rho = 108 * smooth(morph / (collapse ? 0.45 : 0.6)); // corners round first (up to near the 116 px inradius) …
@@ -1175,7 +1232,7 @@
     if (rho < 0.01) for (const [vx, vy] of V) angs.push(mod(Math.atan2(vx - cx, -(vy - cy)), 2 * Math.PI));   // sharp corners stay sharp
     const SQ = [[201 - FW, 201 + FY - FH], [201 + FW, 201 + FY - FH], [201 + FW, 201 + FY + FH], [201 - FW, 201 + FY + FH]];
     if (sqA > 0.001) for (const [x, y] of SQ) angs.push(mod(Math.atan2(x - 201, -(y - 201)), 2 * Math.PI));   // its corners stay sharp
-    if (bandA > 0.001) for (const [x, y] of OCT) angs.push(mod(Math.atan2(x - 201, -(y - 201)), 2 * Math.PI));   // its corners stay sharp
+    if (bandA > 0.001) for (const [x, y] of OCT) angs.push(mod(Math.atan2(x - 201, -(y - 201)), 2 * Math.PI));   // its outline exactly
     const TB = [[0, tapeC() - th / 2], [402, tapeC() - th / 2], [402, tapeC() + th / 2], [0, tapeC() + th / 2]];
     if (tapeA > 0.001) for (const [x, y] of TB) angs.push(mod(Math.atan2(x - 201, -(y - 201)), 2 * Math.PI));
     angs.sort((a, b) => a - b);
@@ -1185,7 +1242,7 @@
       let rr = (r + (161 - r) * w) * k;
       if (pill > 0.001) rr += (capsuleR(dx, dy, ext) - rr) * pill;   // the circle stretches to the pill
       if (sqA > 0.001) rr += (rayHit(201, 201, dx, dy, SQ) - rr) * sqA;   // … or the filter square
-      if (bandA > 0.001) rr += (rayHit(201, 201, dx, dy, OCT) - rr) * bandA;   // … or the band, an octagon
+      if (bandA > 0.001) rr += (rayHit(201, 201, dx, dy, OCT) - rr) * bandA;   // … or the band, a rounded gem
       if (tapeA > 0.001) rr += (rayHit(201, 201, dx, dy, TB) - rr) * tapeA;   // … or the band
       d += (d ? 'L' : 'M') + (cx + dx * rr).toFixed(2) + ' ' + (cy + dy * rr).toFixed(2);
     }
