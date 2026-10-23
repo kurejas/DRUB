@@ -2070,6 +2070,8 @@
   // each style's defaults, as loaded, for the double-tap resets: the tempo, the melody's sound, the beat and the melody
   const DEF = STYLES.map(st => { const sy = SOUND[st.name]; return { bpm: st.bpm, tones: { ...sy.tones }, m: [...sy.m] }; });
   onDoubleTap(tempoEl, () => { setBpm(DEF[shown].bpm); tick(660, 0.5); });
+  const KEY0 = { root: key.root, scale: key.scale };          // the key as it loads (A minor)
+  onDoubleTap(keyZone, () => { setKey(KEY0.root, KEY0.scale); tick(660, 0.5); });
   onDoubleTap(tpick, () => {
     const sy = snd(), d = DEF[shown].tones; sy.tones.mel = d.mel; sy.tones.smel = d.smel;
     toneGo(toneIdx()); resync(); tick(660, 0.5);
