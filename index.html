@@ -242,6 +242,15 @@
   .pad .padhint { position: absolute; left: 161px; top: 362px; transform: translateX(-50%); font-size: 16px; color: var(--ink);
                   pointer-events: none; opacity: 0; transition: opacity 0.25s ease; }
   html.helpon .pad .padhint { opacity: 1; }
+  /* help: DOUBLE-TAP TO RESET where a double tap resets (the Sequencer: the pattern, sound and tempo; the Filter: back to
+     the middle), placed by placeHints() as the shapes resize */
+  .figure .dthint { position: absolute; left: 201px; transform: translate(-50%, -50%); font-size: 16px; pointer-events: none;
+                    opacity: 0; transition: opacity 0.25s ease; z-index: 2; }
+  .figure .dthint.seq-h { color: var(--paper); }            /* on the black band */
+  .figure .dthint.filt-h { color: var(--ink); }             /* on the page, under the square */
+  .figure .dthint.tape-h { color: var(--ink); }            /* on the page, under the blocks: HOLD (the tape stop) */
+  html.helpon .stage[data-mode="2"] .dthint.seq-h, html.helpon .stage[data-mode="4"] .dthint.filt-h,
+  html.helpon .stage[data-mode="5"] .dthint.tape-h { opacity: 1; }
   .pad .lbl.narrow { --w: 50; } .pad .lbl.narrow .hl { --lw: 50; }                                /* tapped: same size, narrowed on the width axis (Figma) */
   .pad .lbl.k.small { top: 93.9px; }  .pad .lbl.h.small { top: 155.4px; }  .pad .lbl.s.small { top: 217.4px; }
   .pad .base .dot { background: var(--paper); }
@@ -692,6 +701,18 @@
 
   /* ---------- the pad (step 2): the loop around the rim, hits from the halves and the H zone ---------- */
   const pad = document.querySelector('.pad');
+  const spelled = w => { const ws = wordWidths(w); return [...w].map((c, i) => `<span style="--w: ${ws[i]}">${c === ' ' ? '&nbsp;' : c}</span>`).join(''); };
+  fig.insertAdjacentHTML('beforeend', `<p class="t dthint seq-h" aria-hidden="true">${spelled('DOUBLE-TAP TO RESET')}</p>` +
+    `<p class="t dthint filt-h" aria-hidden="true">${spelled('DOUBLE-TAP TO RESET')}</p>` +
+    `<p class="t dthint tape-h" aria-hidden="true">${spelled('HOLD')}</p>`);
+  const seqHint = fig.querySelector('.seq-h'), filtHint = fig.querySelector('.filt-h'), tapeHint = fig.querySelector('.tape-h');
+  // the Sequencer's sits in the band's bottom tip, between the last row and the tip; the Filter's 36 px under the square
+  function placeHints() {
+    seqHint.style.top = ((bandB - 31 + bandB + 10) / 2 + 2).toFixed(1) + 'px';
+    filtHint.style.top = (201 + FY + FH + 36).toFixed(1) + 'px';
+    tapeHint.style.top = (201 + FY + Math.min(322, 2 * FH) / 2 + 36).toFixed(1) + 'px';   // under the blocks at rest
+  }
+  placeHints(); addEventListener('resize', placeHints);
   { const w = 'HOLD TO CLEAR', ws = wordWidths(w);
     pad.insertAdjacentHTML('beforeend', `<p class="t padhint" aria-hidden="true">${[...w].map((c, i) => `<span style="--w: ${ws[i]}">${c === ' ' ? '&nbsp;' : c}</span>`).join('')}</p>`); }
   const STEPS = 32;                                            // both bars around the circle at once: no bar 1 / bar 2 switch
