@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-title" content="DRUB">
 <meta name="application-name" content="DRUB">
 <title>DRUB</title>
-<meta name="drub-build" content="20261023062137">
+<meta name="drub-build" content="20261023062303">
 <script>
   // stale copies (GitHub Pages lets browsers keep a page 10 minutes; a home-screen app keeps its own): on launch, ask
   // the server for the current build without any cache, and if it is newer, reload once
@@ -740,7 +740,7 @@
   fig.insertAdjacentHTML('beforeend', `<p class="t dthint seq-h" aria-hidden="true">${spelled('DOUBLE-TAP RESETS')}</p>` +
     `<p class="t dthint filt-h" aria-hidden="true">${spelled('DOUBLE-TAP RESETS')}</p>` +
     `<p class="t dthint tape-h" aria-hidden="true">${spelled('HOLD')}</p>` +
-    `<p class="t dthint go-h" role="button" aria-label="Next screen"><span class="go-touch">SWIPE&nbsp;→</span><span class="go-keys">PRESS&nbsp;→</span></p>`);
+    `<p class="t dthint go-h" role="button" aria-label="Next screen"><span class="go-touch">${spelled('SWIPE →')}</span><span class="go-keys">${spelled('PRESS →')}</span></p>`);
   const seqHint = fig.querySelector('.seq-h'), filtHint = fig.querySelector('.filt-h'), tapeHint = fig.querySelector('.tape-h'), goHint = fig.querySelector('.go-h');
   goHint.addEventListener('pointerdown', e => e.stopPropagation());
   goHint.addEventListener('click', e => { e.stopPropagation(); stepMode(1); });
