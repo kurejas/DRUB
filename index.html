@@ -93,9 +93,6 @@
           cursor: pointer; z-index: 3; }
   .logo::before { content: ''; position: absolute; inset: -12px; }   /* a 48 px tap zone round the 24 px mark */
   .logo svg { display: block; overflow: visible; }
-  /* a colour-only change (all black ↔ all white): the circle dips and springs back as the pages flip */
-  @keyframes logoPop { 0% { transform: scale(1); } 40% { transform: scale(0.6); } 75% { transform: scale(1.06); } 100% { transform: scale(1); } }
-  .logo.pop svg { animation: logoPop 0.26s ease-out; }
   .help { top: calc(43.5px + var(--top)); right: 49.5px; transform: translateX(50%); font-size: 24px; }
   /* help is off by default: the ? as a 1 px outline, no fill (Figma 42:2930, inside border); filled once help exists */
   .help:not(.on) { color: transparent; -webkit-text-stroke: 1px var(--ink); }
@@ -1987,21 +1984,25 @@
     else if (pageTheme === 1) { pageTheme = 2; pageDark = !pageDark; }
     else pageTheme = 0;
     paint(m); tick(pageTheme ? 560 : 700, 0.4); logoMorph(pageTheme ? 1 : 0);
-    if (pageTheme === 2) { logoEl.classList.remove('pop'); void logoEl.offsetWidth; logoEl.classList.add('pop'); }   // colour only
     logoEl.setAttribute('aria-label', `Page colours: ${pageTheme ? (pageDark ? 'all black' : 'all white') : 'alternating'}. Tap to change`);
   }
-  // the logo between its two states: the circles slide together and grow into one as the lens fades (and back)
+  // the logo between its two states (a colour-only change just flips with the page): the circles slide together and
+  // grow into one while the lens closes like an eye, narrowing to nothing (and opens again on the way back)
   const lgA = logoEl.querySelector('.la'), lgB = logoEl.querySelector('.lb'), lgBc = logoEl.querySelector('.lbc'), lgL = logoEl.querySelector('.ll');
   let lgS = 0, lgRaf = 0;
   function logoDraw(k) {
     const a = 7.67 + 4.33 * k, b = 16.33 - 4.33 * k, r = 10.17 + 1.83 * k;
-    for (const c of [lgA, lgL]) { c.setAttribute('cx', a.toFixed(2)); c.setAttribute('r', r.toFixed(2)); }
-    for (const c of [lgB, lgBc]) { c.setAttribute('cx', b.toFixed(2)); c.setAttribute('r', r.toFixed(2)); }
-    lgL.style.opacity = Math.max(0, 1 - 1.6 * k).toFixed(3);
+    for (const c of [lgA, lgB]) c.setAttribute('r', r.toFixed(2));
+    lgA.setAttribute('cx', a.toFixed(2)); lgB.setAttribute('cx', b.toFixed(2));
+    // the lens: the overlap of two circles drawn apart (not merging), their gap widening until they only touch
+    const d = 8.66 + (2 * r - 8.66) * k;
+    lgL.setAttribute('r', r.toFixed(2)); lgBc.setAttribute('r', r.toFixed(2));
+    lgL.setAttribute('cx', (12 - d / 2).toFixed(2)); lgBc.setAttribute('cx', (12 + d / 2).toFixed(2));
   }
   function logoMorph(to) {
-    cancelAnimationFrame(lgRaf); const from = lgS, t0 = performance.now(), D = 250;
-    const step = () => { const u = Math.min(1, (performance.now() - t0) / D), e = 1 - Math.pow(1 - u, 3);
+    cancelAnimationFrame(lgRaf); const from = lgS, t0 = performance.now(), D = 320;
+    if (from === to) return;
+    const step = () => { const u = Math.min(1, (performance.now() - t0) / D), e = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
       lgS = from + (to - from) * e; logoDraw(lgS); if (u < 1) lgRaf = requestAnimationFrame(step); };
     step();
   }
