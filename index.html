@@ -2035,8 +2035,14 @@
     const sy = snd(), d = DEF[shown].tones; sy.tones.mel = d.mel; sy.tones.smel = d.smel;
     toneGo(toneIdx()); resync(); tick(660, 0.5);
   });
-  onDoubleTap(seqEl, () => {
-    if (bandA < 0.9) return;
+  // the Sequencer resets on a double tap anywhere on the band (its drawn shape, tips included) except on the letter
+  // and dot columns, where taps toggle steps and mutes (Darius)
+  onDoubleTap(fig, e => {
+    if (mode !== 2 || bandA < 0.9) return;
+    const r = fig.getBoundingClientRect(), sc = r.width / 402, x = (e.clientX - r.left) / sc, y = (e.clientY - r.top) / sc;
+    if (SEQ_X.some(lx => Math.abs(x - lx) < 26)) return;
+    const dx = x - 201, dy = y - 201, dl = Math.hypot(dx, dy) || 1;
+    if (dl > rayHit(201, 201, dx / dl, dy / dl, OCT)) return;    // off the band
     const st = STYLES[shown], sy = snd();
     loops[shown][1] = [...st.k].map(Number); loops[shown][2] = [...st.s].map(Number); loops[shown][3] = [...st.h].map(Number);
     sy.m.splice(0, sy.m.length, ...DEF[shown].m); muted.fill(false);
