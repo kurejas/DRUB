@@ -186,7 +186,7 @@
   .stage:not([data-mode="3"]) .bass { pointer-events: none; }
   /* the note column (Figma "iPhone 17 - 37" at rest, "- 41" pushed to the top): a dot level with each note the knob can
      land on, 53 px left of it; 2 px at rest, swelling toward the knob as soon as it is pushed off the middle
-     (12 px level with it, 8 either side, then 1 px less per note) */
+     (12 px level with it, 8 either side, then 1 px less per note, down to the resting 2) */
   .bass .bar { position: absolute; left: 148px; border-radius: 50%; background: var(--paper); transform: translate(-50%, -50%); }
   .bass .tick { position: absolute; left: 146px; height: 1.5px; margin-top: -0.75px; background: #fff; }
   .bass .t { font-size: 11px; }
@@ -1606,7 +1606,7 @@
     // the pill's ends and the knob never runs past them (Darius)
     const yTop = noteY(10) - ext[0], yBot = noteY(0) + ext[1], gap = (yBot - yTop) / 10, ky = noteY(v);
     bassBars.forEach((el, n) => {
-      const yn = yBot - n * gap, k = Math.abs(yn - ky) / gap, sz = k < 1 ? 12 - 4 * k : Math.max(0.5, 9 - k);
+      const yn = yBot - n * gap, k = Math.abs(yn - ky) / gap, sz = k < 1 ? 12 - 4 * k : Math.max(2, 9 - k);   // never under the resting 2 px
       const d = 2 + (sz - 2) * amp;
       el.style.top = yn.toFixed(1) + 'px'; el.style.width = el.style.height = d.toFixed(2) + 'px';
     });
