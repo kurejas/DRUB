@@ -359,6 +359,27 @@
     helpAnim = { on, t0: now(), k0: helpKnob(), s0: helpAt() };
   });
   var midUndo = null;                                          // set by a press in the middle, undone if it was a swipe
+  // a tap, not a swipe (Darius): it fires on the lift, only if the finger stayed within 12 px and 0.6 s, so a sideways
+  // swipe over the middle changes screen without also playing, toggling or muting
+  function onTap(el, fn) {
+    let d = null;
+    el.addEventListener('pointerdown', e => { d = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now() }; });
+    el.addEventListener('pointerup', e => {
+      const q = d; d = null; if (!q || e.pointerId !== q.id) return;
+      if (Math.hypot(e.clientX - q.x, e.clientY - q.y) < 12 && performance.now() - q.t < 600) fn(e);
+    });
+    el.addEventListener('pointercancel', () => { d = null; });
+  }
+  // a double tap (two taps within 0.35 s and 30 px) resets a control to the style's default (Darius); the two single
+  // taps still act on the way, and the reset lands on top of them
+  function onDoubleTap(el, fn) {
+    let last = null;
+    onTap(el, e => {
+      const t = performance.now();
+      if (last && t - last.t < 350 && Math.hypot(e.clientX - last.x, e.clientY - last.y) < 30) { last = null; fn(e); }
+      else last = { t, x: e.clientX, y: e.clientY };
+    });
+  }
   // no zooming on phones: double-tap is off via touch-action, pinch is stopped here (Safari ignores user-scalable=no)
   for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
   document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
@@ -736,10 +757,12 @@
       const dd = Math.hypot(x - d.el.dataset.x, y - d.el.dataset.y);
       if (dd <= bd) { bd = dd; best = d; }
     }
-    if (best) {
-      const ln = best.lane, st = best.st % len;
-      loop[ln][st] = 0; removed.set(ln + ':' + st, now()); unsoundStep(ln, st);
-      midUndo = () => { loop[ln][st] = 1; removed.delete(ln + ':' + st); resync(); };   // it was a swipe after all
+    if (best) {                                               // taken out on the lift, if it was a tap (not a swipe)
+      const ln = best.lane, st = best.st % len, id = e.pointerId, x0 = e.clientX, y0 = e.clientY, t0 = performance.now();
+      const up = u => { pad.removeEventListener('pointerup', up);
+        if (u.pointerId !== id || Math.hypot(u.clientX - x0, u.clientY - y0) >= 12 || performance.now() - t0 > 600) return;
+        loop[ln][st] = 0; removed.set(ln + ':' + st, now()); unsoundStep(ln, st); };
+      pad.addEventListener('pointerup', up);
       return;
     }
     hit(Math.abs(x) <= 22 && Math.abs(y) <= 22 ? 3 : y < 0 ? 1 : 2, now());
@@ -980,8 +1003,9 @@
   // middle one the woofer, the last melts into it), cut out of the body as it bends from one outline to the other
   const KM = [[33.2, 36.08, 0.62, 32.0, 26.79, 2.57], [33.85, 37.62, 0.62, 32.0, 35.51, 4.29], [34.52, 39.16, 0.62, 32.0, 35.51, 0]];   // the third shrinks into the woofer (two overlapping would cancel out)
   kitBtn.insertAdjacentHTML('beforeend', '<svg class="kmorph" width="64" height="64" viewBox="0 0 64 64" aria-hidden="true">' +
-    '<path class="kmb" fill="white"/>' + KM.map(() => '<circle r="0" fill="black"/>').join('') + '</svg>');
-  const kmC = [...kitBtn.querySelectorAll('.kmorph circle')], kGuitar = kitBtn.querySelector('.guitar'), kSpeaker = kitBtn.querySelector('.speaker');
+    '<path class="kmb" fill="white"/>' + KM.map(() => '<circle r="0" fill="black"/>').join('') +
+    '<circle class="kmi" r="0" fill="white"/><circle class="kmi" r="0" fill="white"/>' + '</svg>');
+  const kmC = [...kitBtn.querySelectorAll('.kmorph circle:not(.kmi)')], kmI = [...kitBtn.querySelectorAll('.kmorph .kmi')], kGuitar = kitBtn.querySelector('.guitar'), kSpeaker = kitBtn.querySelector('.speaker');
   let kitSyn = null, kmRaf = 0, kmPts = null;
   const kmBody = kitBtn.querySelector('.kmb');
   // both bodies' outlines as 160 matching points in the button's units, same winding, starts lined up, so one
@@ -1004,6 +1028,8 @@
       const u = Math.min(1, (performance.now() - t0) / D), k = ez(u), g = toSyn ? k : 1 - k;   // g: 0 guitar … 1 speaker
       kmC.forEach((c, i) => { const [x0, y0, r0, x1, y1, r1] = KM[i];
         c.setAttribute('cx', (x0 + (x1 - x0) * g).toFixed(2)); c.setAttribute('cy', (y0 + (y1 - y0) * g).toFixed(2)); c.setAttribute('r', (r0 + (r1 - r0) * g).toFixed(2)); });
+      // the cones' centre dots ride in the travelling cones, growing in with them (not popping in at the end)
+      kmI.forEach((c, i) => { const m = KM[i]; c.setAttribute('cx', (m[0] + (m[3] - m[0]) * g).toFixed(2)); c.setAttribute('cy', (m[1] + (m[4] - m[1]) * g).toFixed(2)); c.setAttribute('r', ([0.97, 1.52][i] * g).toFixed(2)); });
       const [G, S] = kmPts;
       kmBody.setAttribute('d', 'M' + G.map((p, i) => (p[0] + (S[i][0] - p[0]) * g).toFixed(2) + ' ' + (p[1] + (S[i][1] - p[1]) * g).toFixed(2)).join('L') + 'Z');
       if (u < 1) kmRaf = requestAnimationFrame(step);
@@ -1654,17 +1680,16 @@
       }
     }
   }
-  seqEl.addEventListener('pointerdown', e => {
+  onTap(seqEl, e => {
     if (bandA < 0.9) return;
     const r = fig.getBoundingClientRect(), sc = r.width / 402, x = (e.clientX - r.left) / sc, y = (e.clientY - r.top) / sc;
     const lane = SEQ_X.findIndex(lx => Math.abs(x - lx) < 26); if (lane < 0) return;
     if (y < seqTop0() - 16) {                                                       // a letter: mute / unmute
-      muted[lane] = !muted[lane]; tick(muted[lane] ? 420 : 640, 0.45); resync();
-      midUndo = () => { muted[lane] = !muted[lane]; resync(); }; return;
+      muted[lane] = !muted[lane]; tick(muted[lane] ? 420 : 640, 0.45); resync(); return;
     }
     const i = Math.round((y - seqTop0()) / (seqSpan() / 31)); if (i < 0 || i > 31) return;
     const sy = snd(), arr = lane === 0 ? sy.m : loops[shown][lane], k = i % arr.length;
-    arr[k] = arr[k] ? 0 : 1; midUndo = () => { arr[k] = arr[k] ? 0 : 1; resync(); };
+    arr[k] = arr[k] ? 0 : 1;
     if (arr[k] && AU.ready && AU.anchored) post(sy.synth, laneEvents(lane, k, sy, 0.4).map(ev => [ev[0], now(), ev[1], ev[2], 0]));
     else tick(330, 0.6);
     resync();
@@ -1862,16 +1887,30 @@
     tape.tR = gridT(Math.ceil(gridB(tape.tr) / 4 + 1e-6) * 4);   // the next downbeat of the grid it would have kept
     if (AU.ready && AU.anchored) post(snd().synth, [[EV.TRESTART, tape.tR, 0, 0, 0]]);
   }
-  let tapePtr = null;
-  fig.addEventListener('pointerdown', e => {
-    if (mode !== 5 || tapeA < 0.9) return;
+  let tapePtr = null, tapePend = null;
+  // stopped: a tap starts the music, and the blocks open at once, even while the sound engine wakes up
+  onTap(fig, e => {
+    if (mode !== 5 || tapeA < 0.9 || playing || waitStart) return;
     const r = fig.getBoundingClientRect(), y = (e.clientY - r.top) / (r.width / 402);
-    // stopped: a tap starts the music, and the blocks open at once, even while the sound engine wakes up
-    if (!playing) { if (Math.abs(y - tapeC()) < Math.min(322, 2 * FH) / 2 + 10 && !waitStart) { setIdle(0, now()); start(); } return; }
-    if (Math.abs(y - tapeC()) > tapeH(now()) / 2 + 10) return;
-    tapePtr = e.pointerId; fig.setPointerCapture(e.pointerId); tapeDown(now());
+    if (Math.abs(y - tapeC()) < Math.min(322, 2 * FH) / 2 + 10) { setIdle(0, now()); start(); }
   });
-  for (const ev of ['pointerup', 'pointercancel']) fig.addEventListener(ev, e => { if (e.pointerId === tapePtr) { tapePtr = null; tapeUp(now()); } });
+  // playing: the hold winds the tape down, but only once it is clearly a hold (90 ms without a sideways move), so a
+  // swipe across the blocks just changes screen
+  fig.addEventListener('pointermove', e => {
+    if (tapePend && e.pointerId === tapePend.id && Math.abs(e.clientX - tapePend.x) > 10) { clearTimeout(tapePend.timer); tapePend = null; }
+  });
+  fig.addEventListener('pointerdown', e => {
+    if (mode !== 5 || tapeA < 0.9 || !playing) return;
+    const r = fig.getBoundingClientRect(), y = (e.clientY - r.top) / (r.width / 402);
+    if (Math.abs(y - tapeC()) > tapeH(now()) / 2 + 10) return;
+    fig.setPointerCapture(e.pointerId);
+    const id = e.pointerId;
+    tapePend = { id, x: e.clientX, timer: setTimeout(() => { if (tapePend && tapePend.id === id) { tapePend = null; tapePtr = id; tapeDown(now()); } }, 90) };
+  });
+  for (const ev of ['pointerup', 'pointercancel']) fig.addEventListener(ev, e => {
+    if (tapePend && e.pointerId === tapePend.id) { clearTimeout(tapePend.timer); tapePend = null; }
+    if (e.pointerId === tapePtr) { tapePtr = null; tapeUp(now()); }
+  });
 
   /* ---------- screens: the mode dots, ← →, or a sideways swipe on the empty page move between them ---------- */
   // all six: 0 rhyme, 1 pad, 2 sequencer, 3 bass, 4 filter, 5 tape stop
@@ -1958,7 +1997,7 @@
     setIdle(1, t); seg = { t0: t, b0: b, bps: seg.bps }; playing = false; fig.classList.add('idle'); tape = null;
     if (AU.ready && AU.anchored) for (const v of [1, 2]) AU.node[v].port.postMessage({ cancelGrid: toFrame(t) });
   }
-  fig.addEventListener('pointerdown', e => {
+  onTap(fig, e => {
     if (mode !== 0 || morph > 0.1) return;
     const r = fig.getBoundingClientRect(), sc = r.width / 402, x = (e.clientX - r.left) / sc, y = (e.clientY - r.top) / sc;
     const V = triVerts(), side = (p, q) => (q[0] - p[0]) * (y - p[1]) - (q[1] - p[1]) * (x - p[0]);
@@ -1989,6 +2028,20 @@
     if (Math.abs(dx) > 40 && Math.abs(dx) > 1.5 * Math.abs(dy)) stepMode(dx < 0 ? 1 : -1);
   });
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // each style's defaults, as loaded, for the double-tap resets: the tempo, the melody's sound, the beat and the melody
+  const DEF = STYLES.map(st => { const sy = SOUND[st.name]; return { bpm: st.bpm, tones: { ...sy.tones }, m: [...sy.m] }; });
+  onDoubleTap(tempoEl, () => { setBpm(DEF[shown].bpm); tick(660, 0.5); });
+  onDoubleTap(tpick, () => {
+    const sy = snd(), d = DEF[shown].tones; sy.tones.mel = d.mel; sy.tones.smel = d.smel;
+    toneGo(toneIdx()); resync(); tick(660, 0.5);
+  });
+  onDoubleTap(seqEl, () => {
+    if (bandA < 0.9) return;
+    const st = STYLES[shown], sy = snd();
+    loops[shown][1] = [...st.k].map(Number); loops[shown][2] = [...st.s].map(Number); loops[shown][3] = [...st.h].map(Number);
+    sy.m.splice(0, sy.m.length, ...DEF[shown].m); muted.fill(false);
+    resync(); tick(660, 0.5);
+  });
   setMode(0); applyMode(0, 0); pending = null;
 
   let lastPos = null;
