@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-title" content="DRUB">
 <meta name="application-name" content="DRUB">
 <title>DRUB</title>
-<meta name="drub-build" content="20261023064437">
+<meta name="drub-build" content="20261023065019">
 <script>
   // stale copies (GitHub Pages lets browsers keep a page 10 minutes; a home-screen app keeps its own): on launch, ask
   // the server for the current build without any cache, and if it is newer, reload once
@@ -441,7 +441,19 @@
   // piecewise-linear through Figma's frames: [frame height, value] at 640 (iPhone SE class), 874 (iPhone 17), 1000
   const lerpH = (pts, h) => { const i = h < pts[1][0] ? 0 : 1, [x0, y0] = pts[i], [x1, y1] = pts[i + 1];
                               return y0 + (y1 - y0) * (h - x0) / (x1 - x0); };
+  // As a home-screen app (iOS, status bar see-through) the page is drawn from the very top of the screen, but iOS reports
+  // the viewport short by both safe areas (seen on an iPhone 17: 96 px short), so everything placed from the height sat
+  // too high and left a gap at the bottom. There, the stage takes the screen's own height.
+  const STANDALONE = navigator.standalone === true;          // iOS home-screen apps only (not desktop installs)
+  function standaloneSize() {
+    if (!STANDALONE) return;
+    const portrait = innerHeight >= innerWidth, sw = screen.width, sh = screen.height;
+    const full = portrait ? Math.max(sw, sh) : Math.min(sw, sh), short = full - innerHeight;
+    if (short > 0 && short <= 150) { stage.style.bottom = 'auto'; stage.style.height = full + 'px'; }   // the safe-area gap only
+    else { stage.style.bottom = ''; stage.style.height = ''; }
+  }
   function fit() {
+    standaloneSize();
     const cs = getComputedStyle(stage), top = parseFloat(cs.getPropertyValue('--top')) || 0,
           bot = parseFloat(cs.getPropertyValue('--bottom')) || 0, H = stage.clientHeight;
     // the band's top and bottom on the screen (Figma: 183–526 at 640 tall, 237–750 at 874, 265–876 at 1000), below
