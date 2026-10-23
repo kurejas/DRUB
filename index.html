@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-title" content="DRUB">
 <meta name="application-name" content="DRUB">
 <title>DRUB</title>
-<meta name="drub-build" content="20261023060957">
+<meta name="drub-build" content="20261023061215">
 <script>
   // stale copies (GitHub Pages lets browsers keep a page 10 minutes; a home-screen app keeps its own): on launch, ask
   // the server for the current build without any cache, and if it is newer, reload once
@@ -105,6 +105,11 @@
           cursor: pointer; z-index: 3; }
   .logo::before { content: ''; position: absolute; inset: -12px; }   /* a 48 px tap zone round the 24 px mark */
   .logo svg { display: block; overflow: visible; }
+  /* help: the page-colour mode next to the logo (Figma "step 1." 89:3646): LIGHT, DARK or MIXED, 16 px, cap line 46.5,
+     widest beside the logo and 25 narrower per letter away from it */
+  .themehint { left: 71px; top: calc(46.5px + var(--top)); font-size: 16px; color: var(--ink); pointer-events: none;
+               opacity: 0; transition: opacity 0.25s ease; }
+  html.helpon .themehint { opacity: 1; }
   .help { top: calc(43.5px + var(--top)); right: 49.5px; transform: translateX(50%); font-size: 24px; }
   /* help is off by default: the ? as a 1 px outline, no fill (Figma 42:2930, inside border); filled once help exists */
   .help:not(.on) { color: transparent; -webkit-text-stroke: 1px var(--ink); }
@@ -328,6 +333,7 @@
       <circle class="ll" cx="7.67" cy="12" r="10.17" clip-path="url(#lgB)" style="fill: var(--paper)"/>
     </svg>
   </div>
+  <p class="t themehint" aria-hidden="true"></p>
   <p class="t help" aria-label="Help">?</p>
 
   <button class="icon kit" type="button" aria-label="Sound source: acoustic. Switch to synth"><svg class="guitar" width="12" height="24" viewBox="0 0 12 24" fill="none" aria-hidden="true"><g class="gt"><path d="M0.175953 21.722L5.04282 10.5047V5.34413C5.04282 4.98426 4.95836 4.73234 4.78944 4.58839C4.62053 4.44444 4.30029 4.2717 3.82874 4.07018C3.65982 3.98381 3.56129 3.85785 3.53314 3.69231C3.50499 3.52677 3.55425 3.37202 3.68094 3.22807L6.04575 0.442645C6.30616 0.147548 6.54545 0 6.76364 0C6.93959 0 7.08035 0.0575798 7.18592 0.17274C7.29853 0.280702 7.35484 0.42825 7.35484 0.615385C7.35484 0.744939 7.31965 1.02564 7.24927 1.45749C7.18592 1.88934 7.11906 2.43995 7.04868 3.10931C6.98534 3.77148 6.95367 4.51642 6.95367 5.34413V10.5047L11.8311 21.722C11.9718 22.0603 12.0246 22.4022 11.9894 22.7476C11.9613 23.1003 11.8276 23.3954 11.5883 23.6329C11.349 23.8776 10.9935 24 10.522 24C10.2827 24 10.0469 23.9424 9.81466 23.8273C9.58944 23.7193 9.32551 23.5394 9.02287 23.2874L6.22522 20.9015C6.1478 20.8367 6.0739 20.8043 6.00352 20.8043C5.93314 20.8043 5.85924 20.8367 5.78182 20.9015L2.98416 23.2874C2.68152 23.5394 2.41408 23.7193 2.18182 23.8273C1.9566 23.9424 1.72082 24 1.47449 24C1.00997 24 0.658065 23.8776 0.418768 23.6329C0.179472 23.3954 0.0422287 23.1003 0.00703812 22.7476C-0.0211144 22.4022 0.0351906 22.0603 0.175953 21.722Z" fill="black"/><path class="gd" d="M7.62945 16.5291C7.5098 16.6514 7.36904 16.7126 7.20716 16.7126C7.03825 16.7126 6.89045 16.6514 6.76376 16.5291C6.63707 16.3995 6.57373 16.252 6.57373 16.0864C6.57373 15.9209 6.63707 15.7733 6.76376 15.6438C6.89045 15.5142 7.03825 15.4495 7.20716 15.4495C7.36904 15.4495 7.5098 15.5142 7.62945 15.6438C7.75613 15.7662 7.81948 15.9137 7.81948 16.0864C7.81948 16.252 7.75613 16.3995 7.62945 16.5291Z" fill="white" style="transform-origin:7.195px 16.08px"/><path class="gd" d="M7.8509 18.2456C8.01982 18.2456 8.1641 18.1844 8.28375 18.062C8.41043 17.9397 8.47378 17.7921 8.47378 17.6194C8.47378 17.4467 8.41043 17.2991 8.28375 17.1768C8.1641 17.0472 8.01982 16.9824 7.8509 16.9824C7.68199 16.9824 7.53419 17.0472 7.4075 17.1768C7.28785 17.3063 7.22803 17.4539 7.22803 17.6194C7.22803 17.7921 7.28785 17.9397 7.4075 18.062C7.53419 18.1844 7.68199 18.2456 7.8509 18.2456Z" fill="white" style="transform-origin:7.85px 17.615px"/><path class="gd" d="M8.94922 19.606C8.82957 19.7284 8.68529 19.7896 8.51637 19.7896C8.35449 19.7896 8.21021 19.7284 8.08352 19.606C7.96388 19.4765 7.90405 19.3253 7.90405 19.1526C7.90405 18.9871 7.96388 18.8395 8.08352 18.71C8.21021 18.5804 8.35449 18.5156 8.51637 18.5156C8.68529 18.5156 8.82957 18.5804 8.94922 18.71C9.0759 18.8323 9.13924 18.9799 9.13924 19.1526C9.13924 19.3253 9.0759 19.4765 8.94922 19.606Z" fill="white" style="transform-origin:8.52px 19.155px"/></g></svg><svg class="speaker" width="17.2368" height="22.3433" viewBox="0 0 17.2368 22.3433" fill="none" aria-hidden="true"><path d="M0 3.45557C0 2.33447 0.293945 1.47998 0.881836 0.89209C1.47656 0.297363 2.33105 0 3.44531 0H13.812C14.9194 0 15.7671 0.297363 16.355 0.89209C16.9429 1.47998 17.2368 2.33447 17.2368 3.45557V18.8877C17.2368 20.002 16.9429 20.8564 16.355 21.4512C15.7671 22.0459 14.9194 22.3433 13.812 22.3433H3.44531C2.33105 22.3433 1.47656 22.0459 0.881836 21.4512C0.293945 20.8564 0 20.002 0 18.8877V3.45557Z" fill="white"/><g class="tw"><path d="M9.91553 8.19287C9.52588 8.41846 9.09521 8.53125 8.62354 8.53125C8.14502 8.53125 7.71094 8.41846 7.32129 8.19287C6.93164 7.96045 6.62061 7.65283 6.38818 7.27002C6.1626 6.88037 6.0498 6.44287 6.0498 5.95752C6.0498 5.479 6.1626 5.04492 6.38818 4.65527C6.62061 4.26562 6.93164 3.95801 7.32129 3.73242C7.71094 3.5 8.14502 3.38379 8.62354 3.38379C9.10205 3.39062 9.53271 3.51025 9.91553 3.74268C10.3052 3.96826 10.6128 4.27588 10.8384 4.66553C11.0708 5.04834 11.1904 5.479 11.1973 5.95752C11.2041 6.44287 11.0913 6.88037 10.8589 7.27002C10.6265 7.65283 10.312 7.96045 9.91553 8.19287Z" fill="black"/><path d="M7.93652 6.65479C8.12793 6.83936 8.35693 6.93164 8.62354 6.93164C8.89014 6.93164 9.11914 6.83936 9.31055 6.65479C9.50195 6.46338 9.59766 6.23096 9.59766 5.95752C9.59766 5.68408 9.50195 5.45508 9.31055 5.27051C9.11914 5.0791 8.89014 4.9834 8.62354 4.9834C8.35693 4.9834 8.12793 5.07568 7.93652 5.26025C7.74512 5.44482 7.64941 5.67725 7.64941 5.95752C7.64941 6.23096 7.74512 6.46338 7.93652 6.65479Z" fill="white"/></g><g class="wf"><path d="M8.62402 10.3973C9.40997 10.3974 10.1281 10.5888 10.7773 10.9715C11.4266 11.3543 11.9424 11.8672 12.3252 12.5096C12.7148 13.1521 12.9101 13.8768 12.9102 14.6834C12.9102 15.4695 12.7148 16.1873 12.3252 16.8367C11.9424 17.4861 11.4267 18.0028 10.7773 18.3856C10.1281 18.7683 9.40997 18.9597 8.62402 18.9598C7.83112 18.9598 7.10933 18.7683 6.45996 18.3856C5.81743 18.0028 5.30175 17.4861 4.91211 16.8367C4.5293 16.1873 4.33691 15.4695 4.33691 14.6834C4.33693 13.8768 4.52932 13.1521 4.91211 12.5096C5.3017 11.8604 5.81756 11.3445 6.45996 10.9617C7.10938 10.5789 7.83105 10.3904 8.62402 10.3973Z" fill="black"/><path d="M8.62354 16.1909C8.20654 16.1909 7.84766 16.0439 7.54688 15.75C7.25293 15.4492 7.10596 15.0937 7.10596 14.6836C7.10596 14.2393 7.25293 13.8735 7.54688 13.5864C7.84082 13.2925 8.19971 13.1455 8.62354 13.1455C9.04736 13.1455 9.40625 13.2925 9.7002 13.5864C9.99414 13.8735 10.1411 14.2393 10.1411 14.6836C10.1411 15.0937 9.99414 15.4492 9.7002 15.75C9.40625 16.0439 9.04736 16.1909 8.62354 16.1909Z" fill="white"/></g></svg></button>
@@ -1995,7 +2001,7 @@
     if (pageTheme === 0) { pageTheme = 1; pageDark = !cur; }
     else if (pageTheme === 1) { pageTheme = 2; pageDark = !pageDark; }
     else pageTheme = 0;
-    paint(m); tick(pageTheme ? 560 : 700, 0.4); logoMorph(pageTheme ? 1 : 0);
+    paint(m); tick(pageTheme ? 560 : 700, 0.4); logoMorph(pageTheme ? 1 : 0); themeLabel();
     logoEl.setAttribute('aria-label', `Page colours: ${pageTheme ? (pageDark ? 'all black' : 'all white') : 'alternating'}. Tap to change`);
   }
   // the logo between its two states (a colour-only change just flips with the page): the circles slide together and
@@ -2018,6 +2024,12 @@
       lgS = from + (to - from) * e; logoDraw(lgS); if (u < 1) lgRaf = requestAnimationFrame(step); };
     step();
   }
+  const themeHint = document.querySelector('.themehint');
+  function themeLabel() {
+    const w = pageTheme ? (pageDark ? 'DARK' : 'LIGHT') : 'MIXED';
+    themeHint.innerHTML = [...w].map((c, i) => `<span style="--w: ${WSTEP[Math.min(5, i)]}">${c}</span>`).join('');
+  }
+  themeLabel();
   logoEl.addEventListener('click', cycleTheme);
   logoEl.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cycleTheme(); } });
   function applyMode(m, t) {
