@@ -707,8 +707,8 @@
   /* ---------- the pad (step 2): the loop around the rim, hits from the halves and the H zone ---------- */
   const pad = document.querySelector('.pad');
   const spelled = w => { const ws = wordWidths(w); return [...w].map((c, i) => `<span style="--w: ${ws[i]}">${c === ' ' ? '&nbsp;' : c}</span>`).join(''); };
-  fig.insertAdjacentHTML('beforeend', `<p class="t dthint seq-h" aria-hidden="true">${spelled('DOUBLE-TAP TO RESET')}</p>` +
-    `<p class="t dthint filt-h" aria-hidden="true">${spelled('DOUBLE-TAP TO RESET')}</p>` +
+  fig.insertAdjacentHTML('beforeend', `<p class="t dthint seq-h" aria-hidden="true">${spelled('DOUBLE-TAP RESETS')}</p>` +
+    `<p class="t dthint filt-h" aria-hidden="true">${spelled('DOUBLE-TAP RESETS')}</p>` +
     `<p class="t dthint tape-h" aria-hidden="true">${spelled('HOLD')}</p>`);
   const seqHint = fig.querySelector('.seq-h'), filtHint = fig.querySelector('.filt-h'), tapeHint = fig.querySelector('.tape-h');
   // the Sequencer's sits under the band; the Filter's in the square's
