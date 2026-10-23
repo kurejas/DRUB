@@ -250,11 +250,11 @@
      the middle), placed by placeHints() as the shapes resize */
   .figure .dthint { position: absolute; left: 201px; transform: translate(-50%, -50%); font-size: 16px; pointer-events: none;
                     opacity: 0; transition: opacity 0.25s ease; z-index: 2; }
-  .figure .dthint.seq-h { color: var(--paper); }            /* on the black band */
+  .figure .dthint.seq-h { color: var(--ink); }              /* on the page, under the band's bottom tip */
   .figure .dthint.filt-h { color: var(--paper); }           /* in the square, bottom middle: RESONANCE's mirror */
   .figure .dthint.tape-h { color: var(--ink); }            /* on the page, under the blocks: HOLD (the tape stop) */
   html.helpon .stage[data-mode="2"] .dthint.seq-h, html.helpon .stage[data-mode="4"] .dthint.filt-h,
-  html.helpon .stage[data-mode="5"] .dthint.tape-h { opacity: 1; }
+  html.helpon .stage[data-mode="5"] .figure:not(.idle) .dthint.tape-h { opacity: 1; }   /* HOLD only while it plays */
   .pad .lbl.narrow { --w: 50; } .pad .lbl.narrow .hl { --lw: 50; }                                /* tapped: same size, narrowed on the width axis (Figma) */
   .pad .lbl.k.small { top: 93.9px; }  .pad .lbl.h.small { top: 155.4px; }  .pad .lbl.s.small { top: 217.4px; }
   .pad .base .dot { background: var(--paper); }
@@ -710,10 +710,11 @@
     `<p class="t dthint filt-h" aria-hidden="true">${spelled('DOUBLE-TAP TO RESET')}</p>` +
     `<p class="t dthint tape-h" aria-hidden="true">${spelled('HOLD')}</p>`);
   const seqHint = fig.querySelector('.seq-h'), filtHint = fig.querySelector('.filt-h'), tapeHint = fig.querySelector('.tape-h');
-  // the Sequencer's sits in the band's bottom tip, between the last row and the tip; the Filter's in the square's
+  // the Sequencer's sits under the band; the Filter's in the square's
   // bottom middle, where RESONANCE sits at the top
   function placeHints() {
-    seqHint.style.top = ((bandB - 31 + bandB + 10) / 2 + 2).toFixed(1) + 'px';
+    // as far under the bottom tip as the style names sit over the top one (their cap line 20 px clear of it)
+    seqHint.style.top = (bandB + 10 + 20 + 5.5).toFixed(1) + 'px';
     filtHint.style.top = (201 + FY + FH * 2 / 3).toFixed(1) + 'px';   // the grid's bottom row, middle column (fgy(1))
     tapeHint.style.top = (201 + FY + Math.min(322, 2 * FH) / 2 + 36).toFixed(1) + 'px';   // under the blocks at rest
   }
