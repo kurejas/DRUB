@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-title" content="DRUB">
 <meta name="application-name" content="DRUB">
 <title>DRUB</title>
-<meta name="drub-build" content="20261023103436">
+<meta name="drub-build" content="20261028035813">
 <script>
   // stale copies (GitHub Pages lets browsers keep a page 10 minutes; a home-screen app keeps its own): on launch, ask
   // the server for the current build without any cache, and if it is newer, reload once
@@ -240,6 +240,7 @@
   .bass .tone { left: 201px; transform: translate(-50%, -50%); cursor: pointer; font-size: 16px; opacity: 0;
                 pointer-events: none; }
   html.helpon .bass .tone { opacity: 1; pointer-events: auto; }
+  .bass .tone { display: none; }                            /* the sound now sits in the strip up top, always (Darius) */
   .bass .note { left: 232px; transform: translateY(-50%); font-size: 12px; }
   .bass .note2 { left: 160px; transform: translate(-50%, -50%); font-size: 9px; }
   .bass .dot2 { position: absolute; left: 201px; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%;
@@ -1425,7 +1426,8 @@
     filtEl.style.opacity = Math.max(0, (sqA - 0.6) / 0.4).toFixed(3);
     seqEl.style.opacity = Math.max(0, (bandA - 0.6) / 0.4).toFixed(3);
     topSplit();
-    if (bandA > 0.01) { seqRender(t); toneFrame(t); }
+    if (bandA > 0.01) seqRender(t);
+    if (bandA > 0.01 || pill > 0.01) toneFrame(t);
     if (pill > 0.01) bassRender(t);
     if (sqA > 0.01) filtRender(t);
     const ks = k < 0.999 ? `scale(${k.toFixed(4)})` : '';          // contents shrink and bloom with the shape (morph 3)
@@ -1654,12 +1656,6 @@
     release(s, t); bassSend([[EV.BOFF, 0, 0, 0, voice]]);
   }
   function bassAllUp(t) { bassUp(0, t); bassUp(1, t); bPtr.clear(); }
-  function cycleBassTone() {
-    if (kitNow()) { tick(500, 0.4); return; }                  // one acoustic bass: the upright
-    const v = bassTone[shown] = (bassTone[shown] + 1) % BASS_TONES.length;
-    bassSend([[EV.BTONE, 0, v, 0, 0]]);
-    if (!live(bassTr[0])) { const t = now(); bassSend([[EV.BON, 0, noteHz(0), 0.8, 0], [EV.BOFF, t + 0.18, 0, 0, 0]]); }
-  }
   const bassEl = document.querySelector('.bass'), toneEl = bassEl.querySelector('.tone'), noteEl = bassEl.querySelector('.note');
   const note2El = bassEl.querySelector('.note2'), dot2 = bassEl.querySelector('.dot2');
   const bassBars = [];
@@ -1710,7 +1706,7 @@
   bassEl.addEventListener('pointerdown', e => {
     if (pill < 0.9) return;
     const y = figY(e), t = now();
-    if (y < noteY(10) - 20 - bassExt(t)[0]) { cycleBassTone(); return; }
+    if (y < noteY(10) - 20 - bassExt(t)[0]) { if (kitNow()) tick(500, 0.4); else toneGo(Math.round(tpos) + 1); return; }
     const voice = !live(bassTr[0]) ? 0 : !live(bassTr[1]) ? 1 : -1;
     if (voice < 0) return;
     bassEl.setPointerCapture(e.pointerId); bPtr.set(e.pointerId, voice);
@@ -1752,7 +1748,7 @@
   const swEl = document.querySelector('.switch'), pkEl = document.querySelector('.picker'), icEl = document.querySelector('.kit');
   let lastSplit = -1, lastWide = null;
   function topSplit() {
-    const k = Math.max(0, Math.min(1, bandA));
+    const k = Math.max(0, Math.min(1, Math.max(bandA, pill)));   // the Sequencer's sounds, or the Bass's
     if (Math.abs(k - lastSplit) < 1e-4 && fitN === lastWide) return;
     lastSplit = k; lastWide = fitN;
     fig.style.setProperty('--s', (sFit + (1 - sFit) * k).toFixed(4));
@@ -1776,7 +1772,7 @@
     const ky = kn ? kn.y : -99;                                 // the knob's own (sprung) height on the track
     seqMarks.forEach((m, beat) => { m.y = seqRowY(Math.min(31, beat * 4)); m.el.style.top = (m.y - 1).toFixed(2) + 'px'; m.el.style.opacity = Math.abs(m.y - ky) < 13 ? 0 : 1; });
     for (const h of seqHead) h.style.top = (seqTop0() - 34).toFixed(2) + 'px';
-    const ini = toneList()[toneIdx()][0], nm = toneList()[toneIdx()], mh = helpWord(nm, 100);   // just the sound's initial (no "M—", Darius); PLUCK in help
+    const ini = melList()[melIdx()][0], nm = melList()[melIdx()], mh = helpWord(nm, 100);   // just the sound's initial (no "M—", Darius); PLUCK in help
     if (seqHead[0].innerHTML !== mh) seqHead[0].innerHTML = mh;
     for (let lane = 0; lane < 4; lane++) {
       seqHead[lane].classList.toggle('mute', muted[lane]);
@@ -1821,12 +1817,16 @@
   });
   // the melody's sound, up top on the right (Figma: … PLUCK KEY …): v1's tones, tap for the next, swipe either way
   const tonesEl = document.querySelector('.tones'), tpick = document.querySelector('.tpick');
-  const toneList = () => { const sy = snd(); return sy.growl ? ['GROWL'] : kitNow() ? ['GUITAR', 'MARIMBA', 'PIANO', 'VIBES'] : ['PLUCK', 'BELL', 'KEYS', 'GLASS']; };
-  const toneIdx = () => { const sy = snd(); return sy.growl ? 0 : kitNow() ? sy.tones.smel : sy.tones.mel; };
+  // on the Bass (step 4) the same strip holds the bass's sounds (ACID SUB GROWL; UPRIGHT with the recorded kit)
+  const bassMode = () => pill > bandA;
+  const melList = () => { const sy = snd(); return sy.growl ? ['GROWL'] : kitNow() ? ['GUITAR', 'MARIMBA', 'PIANO', 'VIBES'] : ['PLUCK', 'BELL', 'KEYS', 'GLASS']; };
+  const melIdx = () => { const sy = snd(); return sy.growl ? 0 : kitNow() ? sy.tones.smel : sy.tones.mel; };
+  const toneList = () => bassMode() ? (kitNow() ? ['UPRIGHT'] : BASS_TONES) : melList();
+  const toneIdx = () => bassMode() ? (kitNow() ? 0 : bassTone[shown]) : melIdx();
   // the strip works as the style strip does (layoutStrip): drag, flick, trackpad, wheel, tap a neighbour, arrow keys
   let toneWords = [], toneKey = '', tpos = 0, tanim = null, tdrag = null, tSnap = 0, tWheelT = 0;
   function toneWordsFor() {                                  // (re)build the names when the list changes (kit, style)
-    const L = toneList(), key = L.join();
+    const L = toneList(), key = L.join() + '|' + shown;          // and per style: each keeps its own pick
     if (key === toneKey) return;
     toneKey = key; tonesEl.innerHTML = '';
     toneWords = L.map(name => { const p = document.createElement('p'); p.className = 't';
@@ -1837,6 +1837,11 @@
   function setToneIdx(v) {                                   // the sound itself changes at once, as the strip heads there
     const sy = snd(), L = toneList(); v = mod(v, L.length);
     if (L.length < 2 || v === toneIdx()) return;
+    if (bassMode()) {                                         // the bass: switch and let it sound once, as a tap on it did
+      bassTone[shown] = v; bassSend([[EV.BTONE, 0, v, 0, 0]]);
+      if (!live(bassTr[0])) { const t = now(); bassSend([[EV.BON, 0, noteHz(0), 0.8, 0], [EV.BOFF, t + 0.18, 0, 0, 0]]); }
+      return;
+    }
     if (kitNow()) sy.tones.smel = v; else sy.tones.mel = v;
     resync(); if (AU.ready && AU.anchored) post(sy.synth, laneEvents(0, 0, sy, 0.5).map(ev => [ev[0], now(), ev[1], ev[2], 0]));
   }
@@ -2185,7 +2190,9 @@
   const KEY0 = { root: key.root, scale: key.scale };          // the key as it loads (A minor)
   onDoubleTap(keyZone, () => { setKey(KEY0.root, KEY0.scale); tick(660, 0.5); });
   onDoubleTap(tpick, () => {
-    const sy = snd(), d = DEF[shown].tones; sy.tones.mel = d.mel; sy.tones.smel = d.smel;
+    const sy = snd(), d = DEF[shown].tones;
+    if (bassMode()) { if (!kitNow()) { bassTone[shown] = d.bass; bassSend([[EV.BTONE, 0, d.bass, 0, 0]]); } toneGo(toneIdx()); tick(660, 0.5); return; }
+    sy.tones.mel = d.mel; sy.tones.smel = d.smel;
     toneGo(toneIdx()); resync(); tick(660, 0.5);
   });
   // the Sequencer resets on a double tap anywhere on the band (its drawn shape, tips included) except on the letter
